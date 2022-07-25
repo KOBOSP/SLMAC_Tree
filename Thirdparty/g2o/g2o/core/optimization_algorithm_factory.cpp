@@ -68,7 +68,7 @@ namespace g2o {
       cerr << "SOLVER FACTORY WARNING: Overwriting Solver creator " << name << endl;
       assert(0);
     }
-    _creator.push_back(c);
+    _creator.emplace_back(c);
   }
 
   void OptimizationAlgorithmFactory::unregisterSolver(AbstractOptimizationAlgorithmCreator* c)

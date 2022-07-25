@@ -609,7 +609,7 @@ bool OptimizableGraph::save(ostream& os, int level) const
   for (HyperGraph::EdgeSet::const_iterator it = edges().begin(); it != edges().end(); ++it) {
     const OptimizableGraph::Edge* e = dynamic_cast<const OptimizableGraph::Edge*>(*it);
     if (e->level() == level)
-      edgesToSave.push_back(const_cast<Edge*>(e));
+      edgesToSave.emplace_back(const_cast<Edge*>(e));
   }
   sort(edgesToSave.begin(), edgesToSave.end(), EdgeIDCompare());
 

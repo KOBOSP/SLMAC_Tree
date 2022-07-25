@@ -113,7 +113,7 @@ void MarginalCovarianceCholesky::computeCovariance(double** covBlocks, const std
         int c = _perm ? _perm[cc + base] : cc + base;
         if (r > c) // make sure it's still upper triangular after applying the permutation
           swap(r, c);
-        elemsToCompute.push_back(MatrixElem(r, c));
+        elemsToCompute.emplace_back(MatrixElem(r, c));
       }
     base = nbase;
   }
@@ -181,7 +181,7 @@ void MarginalCovarianceCholesky::computeCovariance(SparseBlockMatrix<MatrixXd>& 
         int c = _perm ? _perm[cc] : cc;
         if (r > c)
           swap(r, c);
-        elemsToCompute.push_back(MatrixElem(r, c));
+        elemsToCompute.emplace_back(MatrixElem(r, c));
       }
   }
 

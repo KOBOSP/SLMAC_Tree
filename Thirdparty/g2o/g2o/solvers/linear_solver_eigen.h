@@ -163,7 +163,7 @@ class LinearSolverEigen: public LinearSolver<MatrixType>
               const int& r = it->first;
               if (r > static_cast<int>(c)) // only upper triangle
                 break;
-              triplets.push_back(Triplet(r, c, 0.));
+              triplets.emplace_back(Triplet(r, c, 0.));
             }
           }
 
@@ -221,7 +221,7 @@ class LinearSolverEigen: public LinearSolver<MatrixType>
                 int aux_r = rowBaseOfBlock + rr;
                 if (aux_r > aux_c)
                   break;
-                triplets.push_back(Triplet(aux_r, aux_c, m(rr, cc)));
+                triplets.emplace_back(Triplet(aux_r, aux_c, m(rr, cc)));
               }
             }
           }

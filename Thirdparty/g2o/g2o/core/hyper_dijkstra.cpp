@@ -186,7 +186,7 @@ namespace g2o{
       AdjacencyMapEntry& entry(it->second);
       if (! entry.parent()) {
         action->perform(it->first,0,0);
-        q.push_back(it->first);
+        q.emplace_back(it->first);
       }
     }
 
@@ -217,7 +217,7 @@ namespace g2o{
         } else {
           action->perform(child, parent, edge, adjacencyIt->second.distance());
         }
-        q.push_back(child);
+        q.emplace_back(child);
       }
       //cerr << endl;
     }

@@ -202,7 +202,7 @@ namespace g2o {
       if (collection != 0) {
         collection->unregisterAction(action);
         if (collection->actionMap().size() == 0) {
-          collectionDeleteList.push_back(collection);
+          collectionDeleteList.emplace_back(collection);
         }
       }
     }

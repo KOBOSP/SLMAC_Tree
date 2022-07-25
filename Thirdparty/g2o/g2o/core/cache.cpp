@@ -107,7 +107,7 @@ namespace g2o {
       c = container()->createCache(k);
     }
     if (c)
-      _parentCaches.push_back(c);
+      _parentCaches.emplace_back(c);
     return c;
   }
   

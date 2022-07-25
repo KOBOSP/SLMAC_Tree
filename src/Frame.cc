@@ -206,7 +206,7 @@ void Frame::AssignFeaturesToGrid()
 		// 计算某个特征点所在网格的网格坐标，如果找到特征点所在的网格坐标，记录在nGridPosX,nGridPosY里，返回true，没找到返回false
         if(IsPosInGrid(kp, nGridPosX, nGridPosY))
 			//如果找到特征点所在网格坐标，将这个特征点的索引添加到对应网格的数组mGrid中
-            mGrid[nGridPosX][nGridPosY].push_back(i);
+            mGrid[nGridPosX][nGridPosY].emplace_back(i);
     }
 }
 
@@ -344,7 +344,7 @@ bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit)
  * @param[in] maxLevel              最大金字塔层级
  * @return vector<size_t>           返回搜索到的候选匹配点id
  */
-vector<size_t> Frame::GetFeaturesInArea(const float &x, const float  &y, const float  &r, int minLevel, int maxLevel) const
+vector<size_t> Frame::GetFeaturesInArea(const float &x, const float  &y, const float  &r, bool NeedTarget, int minLevel, int maxLevel) const
 {
 	// 存储搜索结果的vector
     vector<size_t> vIndices;
@@ -405,14 +405,14 @@ vector<size_t> Frame::GetFeaturesInArea(const float &x, const float  &y, const f
 				// 保证给定的搜索金字塔层级范围合法
                 // cv::KeyPoint::octave中表示的是从金字塔的哪一层提取的数据
                 // 保证特征点是在金字塔层级minLevel和maxLevel之间，不是的话跳过
-                if(kpUn.octave<minLevel || kpUn.octave>maxLevel)
+                if(kpUn.octave<minLevel || kpUn.octave>maxLevel || (kpUn.class_id>0 && !NeedTarget))
                     continue;
                 // 通过检查，计算候选特征点到圆中心的距离，查看是否是在这个圆形区域之内
                 const float distx = kpUn.pt.x-x;
                 const float disty = kpUn.pt.y-y;
 				// 如果x方向和y方向的距离都在指定的半径之内，存储其index为候选特征点
                 if(distx*distx+disty*disty<r_2){
-                    vIndices.push_back(vCell[j]);
+                    vIndices.emplace_back(vCell[j]);
                 }
             }
         }

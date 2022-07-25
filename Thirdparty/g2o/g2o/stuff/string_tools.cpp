@@ -148,7 +148,7 @@ std::vector<std::string> strSplit(const std::string& str, const std::string& del
 
   do {
     pos = str.find_first_of(delimiters, lastPos);
-    tokens.push_back(str.substr(lastPos, pos - lastPos));
+    tokens.emplace_back(str.substr(lastPos, pos - lastPos));
     lastPos = pos + 1;
   }  while (string::npos != pos);
 

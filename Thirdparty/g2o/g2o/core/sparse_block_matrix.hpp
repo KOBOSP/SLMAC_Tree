@@ -562,9 +562,9 @@ namespace g2o {
           for (int rr = 0; rr < m.rows(); ++rr) {
             int aux_r = rowBaseOfBlock(r) + rr;
             int aux_c = colBaseOfBlock(c) + cc;
-            entries.push_back(TripletEntry(aux_r, aux_c, m(rr, cc)));
+            entries.emplace_back(TripletEntry(aux_r, aux_c, m(rr, cc)));
             if (upperTriangle && r != c) {
-              entries.push_back(TripletEntry(aux_c, aux_r, m(rr, cc)));
+              entries.emplace_back(TripletEntry(aux_c, aux_r, m(rr, cc)));
             }
           }
       }
@@ -599,7 +599,7 @@ namespace g2o {
       dest.clear();
       dest.reserve(row.size());
       for (typename IntBlockMap::const_iterator it = row.begin(); it != row.end(); ++it) {
-        dest.push_back(typename SparseBlockMatrixCCS<MatrixType>::RowBlock(it->first, it->second));
+        dest.emplace_back(typename SparseBlockMatrixCCS<MatrixType>::RowBlock(it->first, it->second));
         ++numblocks;
       }
     }
@@ -616,7 +616,7 @@ namespace g2o {
       const IntBlockMap& row = blockCols()[i];
       for (typename IntBlockMap::const_iterator it = row.begin(); it != row.end(); ++it) {
         typename SparseBlockMatrixCCS<MatrixType>::SparseColumn& dest = blockCCS.blockCols()[it->first];
-        dest.push_back(typename SparseBlockMatrixCCS<MatrixType>::RowBlock(i, it->second));
+        dest.emplace_back(typename SparseBlockMatrixCCS<MatrixType>::RowBlock(i, it->second));
         ++numblocks;
       }
     }
@@ -638,7 +638,7 @@ namespace g2o {
       std::vector<SparseColumnPair> sparseRowSorted; // temporary structure
       sparseRowSorted.reserve(column.size());
       for (typename HashSparseColumn::const_iterator it = column.begin(); it != column.end(); ++it)
-        sparseRowSorted.push_back(*it);
+        sparseRowSorted.emplace_back(*it);
       std::sort(sparseRowSorted.begin(), sparseRowSorted.end(), CmpPairFirst<int, MatrixType*>());
       // try to free some memory early
       HashSparseColumn aux;

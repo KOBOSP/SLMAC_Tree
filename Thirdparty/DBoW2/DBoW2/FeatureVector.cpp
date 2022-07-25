@@ -42,13 +42,13 @@ void FeatureVector::addFeature(NodeId id, unsigned int i_feature)
   if(vit != this->end() && vit->first == id)
   {
     // 如果这个node id已经创建，可以直接插入特征点索引
-    vit->second.push_back(i_feature);
+    vit->second.emplace_back(i_feature);
   }
   else
   {
     // 如果这个node id还未创建，创建后再插入特征点索引
     vit = this->insert(vit, FeatureVector::value_type(id, std::vector<unsigned int>() ));
-    vit->second.push_back(i_feature);
+    vit->second.emplace_back(i_feature);
   }
 }
 

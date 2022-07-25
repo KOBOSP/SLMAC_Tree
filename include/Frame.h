@@ -187,7 +187,7 @@ public:
      * @param[in] maxLevel              最大金字塔层级
      * @return vector<size_t>           返回搜索到的候选匹配点id
      */
-    vector<size_t> GetFeaturesInArea(const float &x, const float  &y, const float  &r, int minLevel=-1, int maxLevel=-1) const;
+    vector<size_t> GetFeaturesInArea(const float &x, const float  &y, const float  &r, bool NeedTarget = false, int minLevel=-1, int maxLevel=-1) const;
 
 public:
 

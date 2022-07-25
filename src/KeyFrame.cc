@@ -45,7 +45,7 @@ int KeyFrame::mnMinConnectedWeight=15;
 KeyFrame::KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB):
         mnFrameId(F.mnId), mTimeStamp(F.mTimeStamp), mnGridCols(FRAME_GRID_COLS), mnGridRows(FRAME_GRID_ROWS),
         mfGridElementWidthInv(F.mfGridElementWidthInv), mfGridElementHeightInv(F.mfGridElementHeightInv),
-        mnTrackReferenceForFrame(0), mnFuseTargetForKF(0), mnBALocalForKF(0), mnBAFixedForKF(0),
+        mnTrackReferenceForFrame(0), mnFuseCandidateInLM(0), mnBALocalForKF(0), mnBAFixedForKF(0),
         mnFrameIDShareWord(0), mnShareWord(0), mnRelocQuery(0), mnRelocWords(0), mnBAGlobalForKF(0),
         fx(F.fx), fy(F.fy), cx(F.cx), cy(F.cy), invfx(F.invfx), invfy(F.invfy), mThDepth(F.mThDepth),
         mnKeyPointNum(F.mnKeyPointNum), mvKeys(F.mvKeys), mvKeysUn(F.mvKeysUn), mDescriptors(F.mDescriptors.clone()),
@@ -58,7 +58,7 @@ KeyFrame::KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB):
         mpMap(pMap)
 {
     // 获取id
-    mnID=nNextId++;
+    mnId=nNextId++;
 
     // 根据指定的普通帧, 初始化用于加速匹配的网格对象信息; 其实就把每个网格中有的特征点的索引复制过来
     mGrid.resize(mnGridCols);
@@ -192,7 +192,7 @@ void KeyFrame::UpdateCovisibleKeyFrameandWeights(){
     vPairs.reserve(mmConnectedKeyFrameandWeights.size());
     // 取出所有连接的关键帧，mConnectedKeyFrameWeights的类型为std::map<KeyFrame*,int>，而vPairs变量将共视的地图点数放在前面，利于排序
     for(map<KeyFrame*,int>::iterator mit=mmConnectedKeyFrameandWeights.begin(), mend=mmConnectedKeyFrameandWeights.end(); mit != mend; mit++)
-       vPairs.push_back(make_pair(mit->second,mit->first));
+       vPairs.emplace_back(make_pair(mit->second,mit->first));
 
     // 按照权重进行排序（默认是从小到大）
     sort(vPairs.begin(),vPairs.end());
@@ -320,13 +320,12 @@ void KeyFrame::ReplaceMapPointMatch(const size_t &idx, MapPoint* pMP)
 }
 
 // 获取当前关键帧中的所有地图点
-set<MapPoint*> KeyFrame::GetMapPoints()
+set<MapPoint*> KeyFrame::GetAllMapPointSetInKF()
 {
     unique_lock<mutex> lock(mMutexFeatures);
 
     set<MapPoint*> s;
-    for(size_t i=0, iend=mvpMapPoints.size(); i<iend; i++)
-    {
+    for(size_t i=0, iend=mvpMapPoints.size(); i<iend; i++){
         // 判断是否被删除了
         if(!mvpMapPoints[i])
             continue;
@@ -349,10 +348,8 @@ int KeyFrame::GetNumMapPointsBigObs(const int &minObs)
     // N是当前帧中特征点的个数
     for(int i=0; i < mnKeyPointNum; i++){
         MapPoint* pMP = mvpMapPoints[i];
-        if(pMP)     //没有被删除
-        {
-            if(!pMP->isBad())   //并且不是坏点
-            {
+        if(pMP){
+            if(!pMP->isBad()){
                 if(bCheckObs){
                     // 满足输入阈值要求的地图点计数加1
                     if(mvpMapPoints[i]->Observations()>=minObs){
@@ -365,34 +362,41 @@ int KeyFrame::GetNumMapPointsBigObs(const int &minObs)
             }
         }
     }
-
     return nPoints;
 }
 
 // 获取当前关键帧的具体的地图点
-vector<MapPoint*> KeyFrame::GetAllMapPointInKF(bool NeedObjectMP)
+vector<MapPoint*> KeyFrame::GetAllMapPointVectorInKF(bool NeedObjectMP)
 {
     unique_lock<mutex> lock(mMutexFeatures);
-    std::vector<MapPoint *> tmp;
-    for(int i=0;i<mvpMapPoints.size();i++){
+    vector<MapPoint*> tmp;
+    for(int i=0;i<mnKeyPointNum;i++){
+        MapPoint* pMP = mvpMapPoints[i];
         if(mvpMapPoints[i]){
-            if(mvpMapPoints[i]->mnObjectID>0 && !NeedObjectMP){
+            if(pMP->isBad()){
+                continue;
+            }
+            if(pMP->mnObjectID>0 && !NeedObjectMP){
                 continue;
             }
         }
-        tmp.push_back(mvpMapPoints[i]);
+        tmp.emplace_back(pMP);
     }
     return tmp;
 }
 
-vector<MapPoint*> KeyFrame::GetAllObjctInKF()
+vector<MapPoint*> KeyFrame::GetAllObjctsInKF()
 {
     unique_lock<mutex> lock(mMutexFeatures);
     std::vector<MapPoint *> tmp;
-    for(int i=0;i<mvpMapPoints.size();i++){
-        if(mvpMapPoints[i]){
-            if(mvpMapPoints[i]->mnObjectID>0){
-                tmp.push_back(mvpMapPoints[i]);
+    for(int i=0;i<mnKeyPointNum;i++){
+        MapPoint* pMP = mvpMapPoints[i];
+        if(pMP){
+            if(pMP->isBad()){
+                continue;
+            }
+            if(pMP->mnObjectID>0){
+                tmp.emplace_back(pMP);
             }
         }
     }
@@ -436,10 +440,10 @@ void KeyFrame::UpdateConnectedKeyFrameAndWeights(){
         if(pMP->isBad())
             continue;
         // 对于每一个地图点，observations记录了可以观测到该地图点的所有关键帧
-        map<KeyFrame*,size_t> observations = pMP->GetObservationsKFandMPidx();
+        map<KeyFrame*,size_t> observations = pMP->GetObservationsKFAndMPIdx();
         for(map<KeyFrame*,size_t>::iterator mit=observations.begin(), mend=observations.end(); mit!=mend; mit++){
             // 除去自身，自己与自己不算共视
-            if(mit->first->mnID == mnID)
+            if(mit->first->mnId == mnId)
                 continue;
             // map[key] = value，当要插入的键存在时，会覆盖键对应的原来的值。如果键不存在，则添加一组键值对
             // mit->first 是地图点看到的关键帧，同一个关键帧看到的地图点会累加到该关键帧计数
@@ -471,7 +475,7 @@ void KeyFrame::UpdateConnectedKeyFrameAndWeights(){
         // 建立共视关系至少需要大于等于th个共视地图点
         if(mit->second >= mnMinConnectedWeight){
             // 对应权重需要大于阈值，对这些关键帧建立连接
-            vPairs.push_back(make_pair(mit->second,mit->first));
+            vPairs.emplace_back(make_pair(mit->second,mit->first));
             // 对方关键帧也要添加这个信息
             // 更新KFcounter中该关键帧的mConnectedKeyFrameWeights
             // 更新其它KeyFrame的mConnectedKeyFrameWeights，更新其它关键帧与当前帧的连接权重
@@ -488,7 +492,7 @@ void KeyFrame::UpdateConnectedKeyFrameAndWeights(){
 	    // 如果每个关键帧与它共视的关键帧的个数都少于th，
         // 那就只更新与其它关键帧共视程度最高的关键帧的mConnectedKeyFrameWeights
         // 这是对之前th这个阈值可能过高的一个补丁
-        vPairs.push_back(make_pair(nmax,pKFmax));
+        vPairs.emplace_back(make_pair(nmax,pKFmax));
         pKFmax->AddConnection(this,nmax);
     }
 
@@ -513,7 +517,7 @@ void KeyFrame::UpdateConnectedKeyFrameAndWeights(){
         mvOrderedConnectedWeights = vector<int>(lWs.begin(), lWs.end());
         //printf("%u--%u--%u\n",mmConnectedKeyFrameandWeights.size(),mvpOrderedConnectedKeyFrames.size(),mvOrderedConnectedWeights.size());
         // Step 5 更新生成树的连接
-        if(mbFirstConnection && mnID != 0){
+        if(mbFirstConnection && mnId != 0){
             // 初始化该关键帧的父关键帧为共视程度最高的那个关键帧
             mpParent = mvpOrderedConnectedKeyFrames.front();
             // 建立双向连接关系，将当前关键帧作为其子关键帧
@@ -625,7 +629,7 @@ void KeyFrame::SetBadFlag()
     {
         unique_lock<mutex> lock(mMutexConnections);
         // 第0关键帧不允许被删除
-        if(mnID == 0)
+        if(mnId == 0)
             return;
         else if(mbNotEraseInLoop){
             // mbNotErase表示不应该删除，于是把mbToBeErased置为true，假装已经删除，其实没有删除
@@ -687,7 +691,7 @@ void KeyFrame::SetBadFlag()
                     // sParentCandidates 中刚开始存的是这里子关键帧的“爷爷”，也是当前关键帧的候选父关键帧
                     for(set<KeyFrame*>::iterator spcit=sParentCandidates.begin(), spcend=sParentCandidates.end(); spcit!=spcend; spcit++){
                         // Step 4.3 如果孩子和sParentCandidates中有共视，选择共视最强的那个作为新的父
-                        if(vpConnected[i]->mnID == (*spcit)->mnID){
+                        if(vpConnected[i]->mnId == (*spcit)->mnId){
                             int w = pKF->GetWeight(vpConnected[i]);
                             // 寻找并更新权值最大的那个共视关系
                             if(w>max){
@@ -798,7 +802,7 @@ vector<size_t> KeyFrame::GetKeyPointsByArea(const float &x, const float &y, cons
                 const float disty = kpUn.pt.y-y;
 
                 if(fabs(distx)<r && fabs(disty)<r)
-                    vIndices.push_back(vCell[j]);
+                    vIndices.emplace_back(vCell[j]);
             }
         }
     }
@@ -812,7 +816,24 @@ vector<size_t> KeyFrame::GetKeyPointsByObjectID(int ClassID) const
     vIndices.reserve(10);
     for(int i=0;i<mvKeysUn.size();i++){
         if(mvKeysUn[i].class_id==ClassID){
-            vIndices.push_back(i);
+            vIndices.emplace_back(i);
+        }
+    }
+    return vIndices;
+}
+
+
+vector<size_t> KeyFrame::GetMapPointByObjectID(int ClassID){
+    unique_lock<mutex> lock(mMutexFeatures);
+    vector<size_t> vIndices;
+    vIndices.reserve(10);
+    for(int i=0;i<mvpMapPoints.size();i++){
+        if(!mvpMapPoints[i])
+            continue;
+        if(mvpMapPoints[i]->isBad())
+            continue;
+        if(mvpMapPoints[i]->mnObjectID == ClassID){
+            vIndices.emplace_back(i);
         }
     }
     return vIndices;
@@ -845,11 +866,14 @@ float KeyFrame::ComputeSceneMedianDepth(const int q)
     float zcw = Tcw_.at<float>(2,3);
     // 遍历每一个地图点,计算并保存其在当前关键帧下的深度
     for(int i=0; i < mnKeyPointNum; i++){
-        if(mvpMapPoints[i]){
-            MapPoint* pMP = mvpMapPoints[i];
+        if(vpMapPoints[i]){
+            MapPoint* pMP = vpMapPoints[i];
+            if(pMP->isBad()){
+                continue;
+            }
             cv::Mat x3Dw = pMP->GetWorldPos();
             float z = Rcw2.dot(x3Dw)+zcw; // (R*x3Dw+t)的第三行，即z
-            vDepths.push_back(z);
+            vDepths.emplace_back(z);
         }
     }
     sort(vDepths.begin(),vDepths.end());

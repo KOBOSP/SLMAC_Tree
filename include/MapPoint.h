@@ -56,22 +56,13 @@ public:
 
     /**
      * @brief 给定坐标与keyframe构造MapPoint
-     * @details 被调用: 双目：StereoInitialization()，CreateNewKeyFrame()，LocalMapping::CreateNewMapPointsByNerborKFs() \n
-     * 单目：CreateInitialMapMonocular()，LocalMapping::CreateNewMapPointsByNerborKFs()
+     * @details 被调用: 双目：StereoInitialization()，CreateNewKeyFrame()，LocalMapping::CreateNewMapPointsAndObjectsByNerborKFs() \n
+     * 单目：CreateInitialMapMonocular()，LocalMapping::CreateNewMapPointsAndObjectsByNerborKFs()
      * @param[in] Pos       MapPoint的坐标（wrt世界坐标系）
      * @param[in] pRefKF    KeyFrame
      * @param[in] pMap      Map  
      */
     MapPoint(const cv::Mat &Pos, KeyFrame* pRefKF, Map* pMap, int nObjectID=-1);
-    /**
-     * @brief 给定坐标与frame构造MapPoint
-     * @detials 被双目：UpdateLastFrame()调用
-     * @param[in] Pos       MapPoint的坐标（世界坐标系） 
-     * @param[in] pMap      Map
-     * @param[in] pFrame    Frame
-     * @param[in] idxF      MapPoint在Frame中的索引，即对应的特征点的编号
-     */
-    MapPoint(const cv::Mat &Pos,  Map* pMap, Frame* pFrame, const int &idxF, int nObjectID=-1);
 
     /**
      * @brief 设置世界坐标系下地图点的位姿 
@@ -101,7 +92,7 @@ public:
      * @return std::map<KeyFrame*,size_t> 观测到当前地图点的关键帧序列； 
      *                                    size_t 这个对象对应为该地图点在该关键帧的特征点的访问id
      */
-    std::map<KeyFrame*,size_t> GetObservationsKFandMPidx();
+    std::map<KeyFrame*,size_t> GetObservationsKFAndMPIdx();
     
     // 获取当前地图点的被观测次数
     int Observations();
@@ -239,10 +230,10 @@ public:
     // b 已经和当前帧经过匹配且为内点，这类点也不需要再进行投影   //? 为什么已经是内点了之后就不需要再进行投影了呢? 
     // c 不在当前相机视野中的点（即未通过isInFrustum判断）     //? 
     bool mbTrackInView;
-    // TrackWithLocalMap - UpdateLocalMapPoints 中防止将MapPoints重复添加至mvpLocalMapPoints的标记
+    // TrackWithLocalMap - RefreshLocalMapPoints 中防止将MapPoints重复添加至mvpLocalMapPoints的标记
     long unsigned int mnTrackReferenceForFrame;
 
-    // TrackWithLocalMap - SearchLocalPoints 中决定是否进行isInFrustum判断的变量
+    // TrackWithLocalMap - SearchNewMatchesByLocalMapPoints 中决定是否进行isInFrustum判断的变量
     // NOTICE mnLastFrameSeen==mCurrentFrame.mnId的点有几种：
     // a 已经和当前帧经过匹配（TrackWithReferenceKeyFrame，TrackWithMotionModel）但在优化过程中认为是外点
     // b 已经和当前帧经过匹配且为内点，这类点也不需要再进行投影
@@ -252,7 +243,7 @@ public:
     // Variables used by local mapping
     // local mapping中记录地图点对应当前局部BA的关键帧的mnId。mnBALocalForKF 在map point.h里面也有同名的变量。
     long unsigned int mnBALocalForKF;          
-    long unsigned int mnFuseCandidateForKF;     ///< 在局部建图线程中使用,表示被用来进行地图点融合的关键帧(存储的是这个关键帧的id)
+    long unsigned int mnFuseCandidateInLM;     ///< 在局部建图线程中使用,表示被用来进行地图点融合的关键帧(存储的是这个关键帧的id)
 
     // Variables used by loop closing -- 一般都是为了避免重复操作
     /// 标记当前地图点是作为哪个"当前关键帧"的回环地图点(即回环关键帧上的地图点),在回环检测线程中被调用

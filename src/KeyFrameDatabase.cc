@@ -65,7 +65,7 @@ namespace ORB_SLAM2 {
 
         // 将该关键帧词袋向量里每一个单词更新倒排索引
         for (DBoW2::BowVector::const_iterator vit = pKF->mBowVec.begin(), vend = pKF->mBowVec.end(); vit != vend; vit++)
-            mvKFListHasWord[vit->first].push_back(pKF);
+            mvKFListHasWord[vit->first].emplace_back(pKF);
     }
 
 /**
@@ -135,12 +135,12 @@ namespace ORB_SLAM2 {
                     KeyFrame *pKFi = *lit;
                     // 还没有标记为pKF的闭环候选帧
                     // 和当前关键帧共视的话不作为闭环候选帧
-                    if (pKFi->mnFrameIDShareWord != pKF->mnID){
+                    if (pKFi->mnFrameIDShareWord != pKF->mnId){
                         pKFi->mnShareWord = 0;
                         if (!spConnectedKeyFrames.count(pKFi)) {
                             // 没有共视就标记作为闭环候选关键帧，放到lKFsSharingWords里
-                            pKFi->mnFrameIDShareWord = pKF->mnID;
-                            lKFsShareWord.push_back(pKFi);
+                            pKFi->mnFrameIDShareWord = pKF->mnId;
+                            lKFsShareWord.emplace_back(pKFi);
                         }
                     }
                     pKFi->mnShareWord++;// 记录pKFi与pKF具有相同word的个数
@@ -179,7 +179,7 @@ namespace ORB_SLAM2 {
                 float si = mpVoc->score(pKF->mBowVec, pKFi->mBowVec);
                 pKFi->mLoopScore = si;
                 if (si >= minScore){
-                    lScoreAndMatch.push_back(make_pair(si, pKFi));
+                    lScoreAndMatch.emplace_back(make_pair(si, pKFi));
                 }
             }
         }
@@ -206,7 +206,7 @@ namespace ORB_SLAM2 {
             for (vector<KeyFrame *>::iterator vit = vpNeighs.begin(), vend = vpNeighs.end(); vit != vend; vit++) {
                 KeyFrame *pKF2 = *vit;
                 // 只有pKF2也在闭环候选帧中，且公共单词数超过最小要求，才能贡献分数
-                if (pKF2->mnFrameIDShareWord == pKF->mnID && pKF2->mnShareWord > minCommonWords) {
+                if (pKF2->mnFrameIDShareWord == pKF->mnId && pKF2->mnShareWord > minCommonWords) {
                     accScore += pKF2->mLoopScore;
                     // 统计得到组里分数最高的关键帧
                     if (pKF2->mLoopScore > bestScore) {
@@ -216,7 +216,7 @@ namespace ORB_SLAM2 {
                 }
             }
 
-            lAccScoreAndMatch.push_back(make_pair(accScore, pBestKF));
+            lAccScoreAndMatch.emplace_back(make_pair(accScore, pBestKF));
             // 记录所有组中组得分最高的组，用于确定相对阈值
             if (accScore > bestAccScore){
                 bestAccScore = accScore;
@@ -238,7 +238,7 @@ namespace ORB_SLAM2 {
                 KeyFrame *pKFi = it->second;
                 // spAlreadyAddedKF 是为了防止重复添加
                 if (!spAlreadyAddedKF.count(pKFi)) {
-                    vpLoopCandidates.push_back(pKFi);
+                    vpLoopCandidates.emplace_back(pKFi);
                     spAlreadyAddedKF.insert(pKFi);
                 }
             }
@@ -278,7 +278,7 @@ namespace ORB_SLAM2 {
                         // pKFi还没有标记为F的重定位候选帧
                         pKFi->mnRelocWords = 0;
                         pKFi->mnRelocQuery = F->mnId;
-                        lKFsSharingWords.push_back(pKFi);
+                        lKFsSharingWords.emplace_back(pKFi);
                     }
                     pKFi->mnRelocWords++;
                 }
@@ -314,7 +314,7 @@ namespace ORB_SLAM2 {
                 // 用mBowVec来计算两者的相似度得分
                 float si = mpVoc->score(F->mBowVec, pKFi->mBowVec);
                 pKFi->mRelocScore = si;
-                lScoreAndMatch.push_back(make_pair(si, pKFi));
+                lScoreAndMatch.emplace_back(make_pair(si, pKFi));
             }
         }
 
@@ -355,7 +355,7 @@ namespace ORB_SLAM2 {
 
             }
 
-            lAccScoreAndMatch.push_back(make_pair(accScore, pBestKF));
+            lAccScoreAndMatch.emplace_back(make_pair(accScore, pBestKF));
 
             // 记录所有组中最高的得分
             if (accScore > bestAccScore)
@@ -377,7 +377,7 @@ namespace ORB_SLAM2 {
                 KeyFrame *pKFi = it->second;
                 // 判断该pKFi是否已经添加在队列中了
                 if (!spAlreadyAddedKF.count(pKFi)) {
-                    vpRelocCandidates.push_back(pKFi);
+                    vpRelocCandidates.emplace_back(pKFi);
                     spAlreadyAddedKF.insert(pKFi);
                 }
             }

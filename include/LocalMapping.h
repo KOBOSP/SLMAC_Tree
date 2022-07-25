@@ -143,22 +143,22 @@ protected:
      */
     void ProcessNewKeyFrame();
     /** @brief 相机运动过程中和共视程度比较高的关键帧通过三角化恢复出一些MapPoints */
-    void CreateNewMapPointsByNerborKFs();
+    void CreateNewMapPointsAndObjectsByNerborKFs();
 
     /**
      * @brief 剔除ProcessNewKeyFrame和CreateNewMapPoints函数中引入的质量不好的MapPoints
      * @see VI-B recent map points culling
      */
-    void MapPointCulling();
+    void CullRecentAddedMapPoints();
     /** @brief 检查并融合当前关键帧与相邻帧（两级相邻）重复的MapPoints */
     void FuseMapPointsInNeighbors();
-
+    void FuseObjectsInGlobalMap();
     /**
      * @brief 关键帧剔除
      * @detials 在Covisibility Graph中的关键帧，其90%以上的MapPoints能被其他关键帧（至少3个）观测到，则认为该关键帧为冗余关键帧。
      * @see VI-E Local Keyframe Culling
      */
-    void KeyFrameCulling();
+    void CullRedundantKeyFrame();
 
     /**
      * 根据两关键帧的姿态计算两个关键帧之间的基本矩阵

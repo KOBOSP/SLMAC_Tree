@@ -60,10 +60,11 @@ void MapDrawer::DrawMapPoints()
     const vector<MapPoint*> &vpMPs = mpMap->GetAllMapPoints();
     //取出mvpReferenceMapPoints，也即局部地图点
     const vector<MapPoint*> &vpRefMPs = mpMap->GetReferenceMapPoints();
-
+    const vector<MapPoint*> &vpRefObs = mpMap->GetReferenceObjects();
     //将vpRefMPs从vector容器类型转化为set容器类型，便于使用set::count快速统计 - 我觉得称之为"重新构造"可能更加合适一些
     //补充, set::count用于返回集合中为某个值的元素的个数
     set<MapPoint*> spRefMPs(vpRefMPs.begin(), vpRefMPs.end());
+    spRefMPs.insert(vpRefObs.begin(), vpRefObs.end());
 
     if(vpMPs.empty())
         return;
@@ -73,9 +74,13 @@ void MapDrawer::DrawMapPoints()
     glPointSize(mPointSize);
     glBegin(GL_POINTS);
     glColor3f(0.0,0.0,0.0);         //黑色
-    for(size_t i=0, iend=vpMPs.size(); i<iend;i++)
-    {
+    for(size_t i=0, iend=vpMPs.size(); i<iend;i++){
+        if(!vpMPs[i])
+            continue;
         if(vpMPs[i]->isBad())
+            continue;
+        // 不包括ReferenceMapPoints（局部地图点）
+        if(spRefMPs.count(vpMPs[i]))
             continue;
         if(vpMPs[i]->mnObjectID>0){
             glEnd();
@@ -89,9 +94,6 @@ void MapDrawer::DrawMapPoints()
             glBegin(GL_POINTS);
             glColor3f(0.0,0.0,0.0);         //黑色
         }
-        // 不包括ReferenceMapPoints（局部地图点）
-        if(spRefMPs.count(vpMPs[i]))
-            continue;
         cv::Mat pos = vpMPs[i]->GetWorldPos();
         glVertex3f(pos.at<float>(0),pos.at<float>(1),pos.at<float>(2));
     }
@@ -103,13 +105,15 @@ void MapDrawer::DrawMapPoints()
     glBegin(GL_POINTS);
     glColor3f(1.0,0.0,0.0);
     for(set<MapPoint*>::iterator sit=spRefMPs.begin(), send=spRefMPs.end(); sit!=send; sit++){
+        if(!(*sit))
+            continue;
         if((*sit)->isBad())
             continue;
         if((*sit)->mnObjectID>0){
             glEnd();
-            glPointSize(mPointSize*3);
+            glPointSize(mPointSize*5);
             glBegin(GL_POINTS);
-            glColor3f(0.0,1.0,0.0);
+            glColor3f(1.0,0.0,0.5);
             cv::Mat pos = (*sit)->GetWorldPos();
             glVertex3f(pos.at<float>(0),pos.at<float>(1),pos.at<float>(2));
             glEnd();
@@ -119,7 +123,6 @@ void MapDrawer::DrawMapPoints()
         }
         cv::Mat pos = (*sit)->GetWorldPos();
         glVertex3f(pos.at<float>(0),pos.at<float>(1),pos.at<float>(2));
-
     }
     glEnd();
 }
@@ -206,7 +209,7 @@ void MapDrawer::DrawKeyFrames(const bool bDrawKF, const bool bDrawGraph)
             if(!vCovKFs.empty()){
                 for(vector<KeyFrame*>::const_iterator vit=vCovKFs.begin(), vend=vCovKFs.end(); vit!=vend; vit++){
                     //单向绘制
-                    if((*vit)->mnID < vpKFs[i]->mnID)
+                    if((*vit)->mnId < vpKFs[i]->mnId)
                         continue;
                     cv::Mat Ow2 = (*vit)->GetCameraCenter();
                     glVertex3f(Ow.at<float>(0),Ow.at<float>(1),Ow.at<float>(2));
@@ -234,7 +237,7 @@ void MapDrawer::DrawKeyFrames(const bool bDrawKF, const bool bDrawGraph)
             glColor4f(0.0f,1.0f,1.0f,1.0f);
             for(set<KeyFrame*>::iterator sit=sLoopKFs.begin(), send=sLoopKFs.end(); sit!=send; sit++)
             {
-                if((*sit)->mnID < vpKFs[i]->mnID)
+                if((*sit)->mnId < vpKFs[i]->mnId)
                     continue;
                 cv::Mat Owl = (*sit)->GetCameraCenter();
                 glVertex3f(Ow.at<float>(0),Ow.at<float>(1),Ow.at<float>(2));

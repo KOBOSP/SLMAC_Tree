@@ -248,13 +248,13 @@ protected:
      *
      * 局部地图包括：共视关键帧、临近关键帧及其子父关键帧，由这些关键帧观测到的MapPoints
      */
-    void UpdateLocalKeyFramesAndMapPoints();
+    void RefreshLocalKeyFramesAndMapPoints();
     
     /**
      * @brief 更新局部地图点（来自局部关键帧）
      * 
      */
-    void UpdateLocalMapPoints();
+    void RefreshLocalMapPoints();
 
    /**
      * @brief 更新局部关键帧
@@ -265,7 +265,7 @@ protected:
      * Step 2.2 策略2：遍历策略1得到的局部关键帧里共视程度很高的关键帧，将他们的家人和邻居作为局部关键帧
      * Step 3：更新当前帧的参考关键帧，与自己共视程度最高的关键帧作为参考关键帧
      */
-    void UpdateLocalKeyFrames();
+    void RefreshLocalKeyFrames();
 
     /**
      * @brief 对Local Map的MapPoints进行跟踪
@@ -283,7 +283,7 @@ protected:
      * 
      * 在局部地图中查找在当前帧视野范围内的点，将视野范围内的点和当前帧的特征点进行投影匹配
      */
-    void SearchLocalPoints();
+    void SearchNewMatchesByLocalMapPoints();
 
     /**
      * @brief 断当前帧是否为关键帧

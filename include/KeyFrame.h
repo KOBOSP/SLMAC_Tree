@@ -234,13 +234,13 @@ namespace ORB_SLAM2 {
          * @brief 获取当前帧中的所有地图点
          * @return std::set<MapPoint*> 所有的地图点
          */
-        std::set<MapPoint *> GetMapPoints();
+        std::set<MapPoint *> GetAllMapPointSetInKF();
 
         /**
          * @brief Get MapPoint Matches 获取该关键帧的MapPoints
          */
-        std::vector<MapPoint *> GetAllMapPointInKF(bool NeedObjectMP = true);
-        std::vector<MapPoint*> GetAllObjctInKF();
+        std::vector<MapPoint *> GetAllMapPointVectorInKF(bool NeedObjectMP = true);
+        std::vector<MapPoint*> GetAllObjctsInKF();
         /**
          * @brief 关键帧中，大于等于minObs的MapPoints的数量
          * @details minObs就是一个阈值，大于minObs就表示该MapPoint是一个高质量的MapPoint \n
@@ -266,6 +266,7 @@ namespace ORB_SLAM2 {
          */
         std::vector<size_t> GetKeyPointsByArea(const float &x, const float &y, const float &r) const;
         std::vector<size_t> GetKeyPointsByObjectID(int ClassID) const;
+        vector<size_t> GetMapPointByObjectID(int ClassID);
 
         // Image
         /**
@@ -305,7 +306,7 @@ namespace ORB_SLAM2 {
         }
 
         static bool lId(KeyFrame *pKF1, KeyFrame *pKF2) {
-            return pKF1->mnID < pKF2->mnID;
+            return pKF1->mnId < pKF2->mnId;
         }
 
 
@@ -315,7 +316,7 @@ namespace ORB_SLAM2 {
         /// nNextID名字改为nLastID更合适，表示上一个KeyFrame的ID号
         static long unsigned int nNextId;
         /// 在nNextID的基础上加1就得到了mnID，为当前KeyFrame的ID号
-        long unsigned int mnID;
+        long unsigned int mnId;
         /// 每个KeyFrame基本属性是它是一个Frame，KeyFrame初始化的时候需要Frame，
         /// mnFrameId记录了该KeyFrame是由哪个Frame初始化的
         const long unsigned int mnFrameId;
@@ -332,7 +333,7 @@ namespace ORB_SLAM2 {
 
         // Variables used by the tracking
         long unsigned int mnTrackReferenceForFrame;     // 记录它
-        long unsigned int mnFuseTargetForKF;        ///< 标记在局部建图线程中,和哪个关键帧进行融合的操作
+        long unsigned int mnFuseCandidateInLM;        ///< 标记在局部建图线程中,和哪个关键帧进行融合的操作
 
         // Variables used by the local mapping
         // local mapping中记录当前处理的关键帧的mnId，表示当前局部BA的关键帧id。mnBALocalForKF 在map point.h里面也有同名的变量。
@@ -372,8 +373,6 @@ namespace ORB_SLAM2 {
         // 和Frame类中的定义相同
         const std::vector<cv::KeyPoint> mvKeys;
         const std::vector<cv::KeyPoint> mvKeysUn;
-        const std::vector<cv::KeyPoint> mvTars;
-        const std::vector<cv::KeyPoint> mvTarsUn;
         const cv::Mat mDescriptors;
 
         //BoW

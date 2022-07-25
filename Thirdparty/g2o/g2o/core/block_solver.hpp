@@ -303,9 +303,9 @@ bool BlockSolver<Traits>::updateStructure(const std::vector<HyperGraph::Vertex*>
     if (! v->marginalized()){
       v->setColInHessian(_sizePoses);
       _sizePoses+=dim;
-      _Hpp->rowBlockIndices().push_back(_sizePoses);
-      _Hpp->colBlockIndices().push_back(_sizePoses);
-      _Hpp->blockCols().push_back(typename SparseBlockMatrix<PoseMatrixType>::IntBlockMap());
+      _Hpp->rowBlockIndices().emplace_back(_sizePoses);
+      _Hpp->colBlockIndices().emplace_back(_sizePoses);
+      _Hpp->blockCols().emplace_back(typename SparseBlockMatrix<PoseMatrixType>::IntBlockMap());
       ++_numPoses;
       int ind = v->hessianIndex();
       PoseMatrixType* m = _Hpp->block(ind, ind, true);

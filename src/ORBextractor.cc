@@ -645,18 +645,18 @@ void ExtractorNode::DivideNode(ExtractorNode &n1,
         if(kp.pt.x<n1.UR.x)
         {
             if(kp.pt.y<n1.BR.y){
-                n1.vKeys.push_back(kp);
+                n1.vKeys.emplace_back(kp);
             }
             else{
-                n3.vKeys.push_back(kp);
+                n3.vKeys.emplace_back(kp);
             }
         }
         else{
             if(kp.pt.y<n1.BR.y){
-                n2.vKeys.push_back(kp);
+                n2.vKeys.emplace_back(kp);
             }
             else{
-                n4.vKeys.push_back(kp);
+                n4.vKeys.emplace_back(kp);
             }
         }
 
@@ -700,7 +700,7 @@ void ExtractorNode::DivideNode(ExtractorNode &n1,
         //获取这个特征点对象
         const cv::KeyPoint &kp = vToDistributeKeys[i];
         //按特征点的横轴位置，分配给属于那个图像区域的提取器节点（最初的提取器节点）
-        ni.vKeys.push_back(kp);
+        ni.vKeys.emplace_back(kp);
     }
     qCanExtArea.push(ni);
 //    printf("ni.vKeys.size()=%u\n",ni.vKeys.size());
@@ -720,7 +720,7 @@ void ExtractorNode::DivideNode(ExtractorNode &n1,
                     qCanExtArea.push(FourExtNode[i]);
                 }
                 else{
-                    vDoneExtArea.push_back(FourExtNode[i]);
+                    vDoneExtArea.emplace_back(FourExtNode[i]);
                 }
             }
         }
@@ -733,7 +733,7 @@ void ExtractorNode::DivideNode(ExtractorNode &n1,
     vector<cv::KeyPoint> vResultKeys;
     vResultKeys.reserve(mnfeatures);
     for(vector<ExtractorNode>::iterator iArea=vDoneExtArea.begin();iArea!=vDoneExtArea.end();iArea++){
-        vResultKeys.push_back(iArea->vKeys[0]);
+        vResultKeys.emplace_back(iArea->vKeys[0]);
     }
 
     // Retain the best point in each node
@@ -759,7 +759,7 @@ void ExtractorNode::DivideNode(ExtractorNode &n1,
             }
         }
         //将这个节点区域中的响应值最大的特征点加入最终结果容器
-        vResultKeys.push_back(*pKP);
+        vResultKeys.emplace_back(*pKP);
     }
 //    printf("vResultKeys.size()=%u\n\n",vResultKeys.size());
     //返回最终结果容器，其中保存有分裂出来的区域中，我们最感兴趣、响应值最大的特征点
@@ -862,7 +862,7 @@ void ORBextractor::ComputeKeyPointsOctTree(vector<vector<KeyPoint> >& allKeypoin
                         (*vit).pt.x+=j*wCell;
                         (*vit).pt.y+=i*hCell;
 						//然后将其加入到”等待被分配“的特征点容器中
-                        vToDistributeKeys.push_back(*vit);
+                        vToDistributeKeys.emplace_back(*vit);
                     }//遍历图像cell中的所有的提取出来的FAST角点，并且恢复其在整个金字塔当前层图像下的坐标
                 }//当图像cell中检测到FAST角点的时候执行下面的语句
             }//开始遍历图像cell的列

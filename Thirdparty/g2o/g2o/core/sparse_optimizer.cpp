@@ -239,7 +239,7 @@ namespace g2o{
         }
       }
       if (levelEdges){
-        _activeVertices.push_back(v);
+        _activeVertices.emplace_back(v);
 
         // test for NANs in the current estimate if we are debugging
 #      ifndef NDEBUG
@@ -260,7 +260,7 @@ namespace g2o{
 
     _activeEdges.reserve(auxEdgeSet.size());
     for (set<Edge*>::iterator it = auxEdgeSet.begin(); it != auxEdgeSet.end(); ++it)
-      _activeEdges.push_back(*it);
+      _activeEdges.emplace_back(*it);
 
     sortVectorContainers();
     return buildIndexMapping(_activeVertices);
@@ -279,12 +279,12 @@ namespace g2o{
       for (vector<HyperGraph::Vertex*>::const_iterator vit = e->vertices().begin(); vit != e->vertices().end(); ++vit) {
         auxVertexSet.insert(static_cast<OptimizableGraph::Vertex*>(*vit));
       }
-      _activeEdges.push_back(reinterpret_cast<OptimizableGraph::Edge*>(*it));
+      _activeEdges.emplace_back(reinterpret_cast<OptimizableGraph::Edge*>(*it));
     }
 
     _activeVertices.reserve(auxVertexSet.size());
     for (set<Vertex*>::iterator it = auxVertexSet.begin(); it != auxVertexSet.end(); ++it)
-      _activeVertices.push_back(*it);
+      _activeVertices.emplace_back(*it);
 
     sortVectorContainers();
     return buildIndexMapping(_activeVertices);
@@ -451,7 +451,7 @@ namespace g2o{
     _activeEdges.reserve(_activeEdges.size() + eset.size());
     for (HyperGraph::EdgeSet::iterator it = eset.begin(); it != eset.end(); ++it) {
       OptimizableGraph::Edge* e = static_cast<OptimizableGraph::Edge*>(*it);
-      if (!e->allVerticesFixed()) _activeEdges.push_back(e);
+      if (!e->allVerticesFixed()) _activeEdges.emplace_back(e);
     }
     
     // update the index mapping
@@ -461,9 +461,9 @@ namespace g2o{
       if (! v->fixed()){
         if (! v->marginalized()){
           v->setHessianIndex(next);
-          _ivMap.push_back(v);
-          newVertices.push_back(v);
-          _activeVertices.push_back(v);
+          _ivMap.emplace_back(v);
+          newVertices.emplace_back(v);
+          _activeVertices.emplace_back(v);
           next++;
         } 
         else // not supported right now

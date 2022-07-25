@@ -167,7 +167,7 @@ void Factory::fillKnownTypes(std::vector<std::string>& types) const
 {
   types.clear();
   for (CreatorMap::const_iterator it = _creator.begin(); it != _creator.end(); ++it)
-    types.push_back(it->first);
+    types.emplace_back(it->first);
 }
 
 bool Factory::knowsTag(const std::string& tag, int* elementType) const

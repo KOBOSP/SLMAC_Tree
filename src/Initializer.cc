@@ -107,7 +107,7 @@ namespace ORB_SLAM2
             if(vMatches12[i]>=0){
                 //mvMatches12 中只记录有匹配关系的特征点对的索引值
                 //i表示帧1中关键点的索引值，vMatches12[i]的值为帧2的关键点索引值
-                mvMatches12.push_back(make_pair(i,vMatches12[i]));
+                mvMatches12.emplace_back(make_pair(i,vMatches12[i]));
             }
         }
 
@@ -122,7 +122,7 @@ namespace ORB_SLAM2
         vector<size_t> vAvailableIndices;
         //初始化所有特征点对的索引，索引值0到N-1
         for(int i=0; i<N; i++){
-            vAllIndices.push_back(i);
+            vAllIndices.emplace_back(i);
         }
 
         // Generate sets of 8 points for each RANSAC iteration
@@ -1099,7 +1099,7 @@ namespace ORB_SLAM2
             cv::Mat R = s*U*Rp*Vt;
 
             // 保存
-            vR.push_back(R);
+            vR.emplace_back(R);
 
             // eq. (14) 生成tp
             cv::Mat tp(3,1,CV_32F);
@@ -1112,7 +1112,7 @@ namespace ORB_SLAM2
             // 因为CreateInitialMapMonocular函数对3D点深度会缩放，然后反过来对 t 有改变
             // eq.(8)恢复原始的t
             cv::Mat t = U*tp;
-            vt.push_back(t/cv::norm(t));
+            vt.emplace_back(t/cv::norm(t));
 
             // 构造法向量np
             cv::Mat np(3,1,CV_32F);
@@ -1126,7 +1126,7 @@ namespace ORB_SLAM2
             if(n.at<float>(2)<0)
                 n=-n;
             // 添加到vector
-            vn.push_back(n);
+            vn.emplace_back(n);
         }
 
         // Step 1.2 讨论 d' < 0 时的 4 组解
@@ -1150,7 +1150,7 @@ namespace ORB_SLAM2
             // 恢复出原来的R
             cv::Mat R = s*U*Rp*Vt;
             // 然后添加到vector中
-            vR.push_back(R);
+            vR.emplace_back(R);
 
             // 构造tp
             cv::Mat tp(3,1,CV_32F);
@@ -1162,7 +1162,7 @@ namespace ORB_SLAM2
             // 恢复出原来的t
             cv::Mat t = U*tp;
             // 归一化之后加入到vector中,要提供给上面的平移矩阵都是要进行过归一化的
-            vt.push_back(t/cv::norm(t));
+            vt.emplace_back(t/cv::norm(t));
 
             // 构造法向量np
             cv::Mat np(3,1,CV_32F);
@@ -1176,7 +1176,7 @@ namespace ORB_SLAM2
             if(n.at<float>(2)<0)
                 n=-n;
             // 添加到vector中
-            vn.push_back(n);
+            vn.emplace_back(n);
         }
 
         // 最好的good点
@@ -1561,7 +1561,7 @@ namespace ORB_SLAM2
 
             // Step 6 统计经过检验的3D点个数，记录3D点视差角
             // 如果运行到这里就说明当前遍历的这个特征点对靠谱，经过了重重检验，说明是一个合格的点，称之为good点
-            vCosParallax.push_back(cosParallax);
+            vCosParallax.emplace_back(cosParallax);
             //存储这个三角化测量后的3D点在世界坐标系下的坐标
             vP3D[vMatches12[i].first] = cv::Point3f(p3dC1.at<float>(0),p3dC1.at<float>(1),p3dC1.at<float>(2));
             vbGood[vMatches12[i].first]=true;

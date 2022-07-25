@@ -188,7 +188,7 @@ namespace g2o {
     vector<AdjacencyMapEntry*> frontierLevels;
     for (AdjacencyMap::iterator it = _adjacencyMap.begin(); it != _adjacencyMap.end(); ++it) {
       if (it->second._frontierLevel > 0)
-        frontierLevels.push_back(&it->second);
+        frontierLevels.emplace_back(&it->second);
     }
     sort(frontierLevels.begin(), frontierLevels.end(), FrontierLevelCmp());
     for (vector<AdjacencyMapEntry*>::const_iterator it = frontierLevels.begin(); it != frontierLevels.end(); ++it) {

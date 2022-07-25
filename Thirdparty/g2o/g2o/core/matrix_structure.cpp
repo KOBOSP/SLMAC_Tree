@@ -100,9 +100,9 @@ bool MatrixStructure::write(const char* filename) const
     const int& rbeg = Ap[i];
     const int& rend = Ap[i+1];
     for (int j = rbeg; j < rend; ++j) {
-      entries.push_back(make_pair(Aii[j], i));
+      entries.emplace_back(make_pair(Aii[j], i));
       if (Aii[j] != i)
-        entries.push_back(make_pair(i, Aii[j]));
+        entries.emplace_back(make_pair(i, Aii[j]));
     }
   }
 

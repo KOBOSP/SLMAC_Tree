@@ -76,6 +76,7 @@ public:
      * @param[in] vpMPs 地图点们
      */
     void SetReferenceMapPoints(const std::vector<MapPoint*> &vpMPs);
+    void SetReferenceObjects(const vector<MapPoint *> &vpMPs);
 
 
     /**
@@ -90,14 +91,14 @@ public:
      * @return std::vector<MapPoint*> 获得的地图点序列
      */
     std::vector<MapPoint*> GetAllMapPoints(bool NeedObjectMP = true);
-    std::vector<MapPoint*> GetAllObjects();
+    std::vector<MapPoint*> GetAllObjectsInMap();
     /**
      * @brief 获取地图中的所有参考地图点
      * 
      * @return std::vector<MapPoint*> 获得的参考地图点序列
      */
     std::vector<MapPoint*> GetReferenceMapPoints();
-
+    std::vector<MapPoint*> GetReferenceObjects();
     /**
      * @brief 获得当前地图中的地图点个数
      * 
@@ -141,6 +142,8 @@ protected:
 
     ///参考地图点
     std::vector<MapPoint*> mvpReferenceMapPoints;
+    std::vector<MapPoint*> mvpReferenceObjects;
+
 
     ///当前地图中具有最大ID的关键帧
     long unsigned int mnMaxKeyFrameID;

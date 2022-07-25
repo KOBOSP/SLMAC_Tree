@@ -52,8 +52,8 @@ void Map::AddKeyFrame(KeyFrame *pKF)
 {
     unique_lock<mutex> lock(mMutexMap);
     mspKeyFrames.insert(pKF);
-    if(pKF->mnID > mnMaxKeyFrameID)
-        mnMaxKeyFrameID=pKF->mnID;
+    if(pKF->mnId > mnMaxKeyFrameID)
+        mnMaxKeyFrameID=pKF->mnId;
 }
 
 /*
@@ -105,7 +105,15 @@ void Map::EraseKeyFrame(KeyFrame *pKF)
 void Map::SetReferenceMapPoints(const vector<MapPoint *> &vpMPs)
 {
     unique_lock<mutex> lock(mMutexMap);
+    mvpReferenceMapPoints.clear();
     mvpReferenceMapPoints = vpMPs;
+}
+
+void Map::SetReferenceObjects(const vector<MapPoint *> &vpMPs)
+{
+    unique_lock<mutex> lock(mMutexMap);
+    mvpReferenceObjects.clear();
+    mvpReferenceObjects = vpMPs;
 }
 
 
@@ -125,18 +133,18 @@ vector<MapPoint*> Map::GetAllMapPoints(bool NeedObjectMP)
         if((*ipMP)->mnObjectID>0 && !NeedObjectMP){
             continue;
         }
-        tmp.push_back((*ipMP));
+        tmp.emplace_back((*ipMP));
     }
     return tmp;
 }
 
-vector<MapPoint*> Map::GetAllObjects()
+vector<MapPoint*> Map::GetAllObjectsInMap()
 {
     unique_lock<mutex> lock(mMutexMap);
     vector<MapPoint*> tmp;
     for(set<MapPoint*>::iterator ipMP=mspMapPoints.begin();ipMP!=mspMapPoints.end();ipMP++){
         if((*ipMP)->mnObjectID>0){
-            tmp.push_back((*ipMP));
+            tmp.emplace_back((*ipMP));
         }
     }
     return tmp;
@@ -156,11 +164,18 @@ long unsigned int Map::GetKeyFramesNumInMap()
     return mspKeyFrames.size();
 }
 
+
 //获取参考地图点
 vector<MapPoint*> Map::GetReferenceMapPoints()
 {
     unique_lock<mutex> lock(mMutexMap);
     return mvpReferenceMapPoints;
+}
+
+vector<MapPoint*> Map::GetReferenceObjects()
+{
+    unique_lock<mutex> lock(mMutexMap);
+    return mvpReferenceObjects;
 }
 
 //获取地图中最大的关键帧id

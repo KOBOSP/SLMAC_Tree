@@ -99,7 +99,7 @@ void RobustKernelFactory::fillKnownKernels(std::vector<std::string>& types) cons
 {
   types.clear();
   for (CreatorMap::const_iterator it = _creator.begin(); it != _creator.end(); ++it)
-    types.push_back(it->first);
+    types.emplace_back(it->first);
 }
 
 void RobustKernelFactory::destroy()

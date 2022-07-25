@@ -58,7 +58,7 @@ Sim3Solver::Sim3Solver(KeyFrame *pKF1, KeyFrame *pKF2, const vector<MapPoint *> 
     mpKF2 = pKF2;       // 闭环关键帧
 
     // Step 1 取出当前关键帧中的所有地图点
-    vector<MapPoint*> vpKeyFrameMP1 = pKF1->GetAllMapPointInKF();
+    vector<MapPoint*> vpKeyFrameMP1 = pKF1->GetAllMapPointVectorInKF();
 
     // 最多匹配的地图点数目
     mN1 = vpMatched12.size();
@@ -108,23 +108,23 @@ Sim3Solver::Sim3Solver(KeyFrame *pKF1, KeyFrame *pKF2, const vector<MapPoint *> 
             const float sigmaSquare2 = pKF2->mvLevelSigma2[kp2.octave];
 
 	        // 自由度为2的卡方分布，显著性水平为0.01，对应的临界阈值为9.21
-            mvnMaxError1.push_back(9.210*sigmaSquare1);
-            mvnMaxError2.push_back(9.210*sigmaSquare2);
+            mvnMaxError1.emplace_back(9.210*sigmaSquare1);
+            mvnMaxError2.emplace_back(9.210*sigmaSquare2);
 
             // mvpMapPoints1和mvpMapPoints2是匹配的MapPoints容器
-            mvpMapPoints1.push_back(pMP1);
-            mvpMapPoints2.push_back(pMP2);
-            mvnIndices1.push_back(i1);
+            mvpMapPoints1.emplace_back(pMP1);
+            mvpMapPoints2.emplace_back(pMP2);
+            mvnIndices1.emplace_back(i1);
 
             // 计算这对匹配地图点分别在各自相机坐标系下的坐标（用来计算SIM3）
             cv::Mat X3D1w = pMP1->GetWorldPos();
-            mvX3Dc1.push_back(Rcw1*X3D1w+tcw1);
+            mvX3Dc1.emplace_back(Rcw1*X3D1w+tcw1);
 
             cv::Mat X3D2w = pMP2->GetWorldPos();
-            mvX3Dc2.push_back(Rcw2*X3D2w+tcw2);
+            mvX3Dc2.emplace_back(Rcw2*X3D2w+tcw2);
 
             // 所有有效三维点的索引
-            mvAllIndices.push_back(idx);
+            mvAllIndices.emplace_back(idx);
             idx++;
         }
     } 
@@ -518,7 +518,7 @@ void Sim3Solver::Project(const vector<cv::Mat> &vP3Dw, vector<cv::Mat> &vP2D, cv
         const float x = P3Dc.at<float>(0)*invz;
         const float y = P3Dc.at<float>(1)*invz;
 
-        vP2D.push_back((cv::Mat_<float>(2,1) << fx*x+cx, fy*y+cy));
+        vP2D.emplace_back((cv::Mat_<float>(2,1) << fx*x+cx, fy*y+cy));
     }
 }
 
@@ -546,7 +546,7 @@ void Sim3Solver::FromCameraToImage(const vector<cv::Mat> &vP3Dc, vector<cv::Mat>
         const float y = vP3Dc[i].at<float>(1)*invz;
 
         // 图像上的u,v坐标
-        vP2D.push_back((cv::Mat_<float>(2,1) << fx*x+cx, fy*y+cy));
+        vP2D.emplace_back((cv::Mat_<float>(2,1) << fx*x+cx, fy*y+cy));
     }
 }
 

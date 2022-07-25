@@ -94,7 +94,6 @@ void LoopClosing::Run()
             // 在LocalMapping中通过 InsertKeyFrameInQueue 将关键帧插入闭环检测队列mlpLoopKeyFrameQueue
             // Step 1 查看闭环检测队列mlpLoopKeyFrameQueue中有没有关键帧进来
             if (CheckNewKeyFrames()) {
-                FuseSameObjectIDInGlobalMap();
                 // Detect loop candidates and check covisibility consistency
                 if (DetectLoop()) {
                     // Compute similarity transformation [sR|t]
@@ -123,49 +122,13 @@ void LoopClosing::Run()
     SetFinish();
 }
 
-void LoopClosing::FuseSameObjectIDInGlobalMap(){
-    int nMaxObjectID=-1;
-    vector<MapPoint*> ObjectsInGlobalMap = mpMap->GetAllObjects();
-    vector<vector<MapPoint*>> vvpSameIDObject;
-    vvpSameIDObject.resize(mnMaxObjectID);
-    for(vector<MapPoint*>::iterator vit=ObjectsInGlobalMap.begin(), vend=ObjectsInGlobalMap.end(); vit != vend; vit++) {
-        MapPoint* pMPObj = *vit;
-        if(pMPObj->mvObjectIDPos.size()>1){
-            vvpSameIDObject[pMPObj->mnObjectID].insert(vvpSameIDObject[pMPObj->mnObjectID].begin(),pMPObj);
-        }
-        else{
-            vvpSameIDObject[pMPObj->mnObjectID].push_back(pMPObj);
-        }
-        if(pMPObj->mnObjectID > nMaxObjectID){
-            nMaxObjectID=pMPObj->mnObjectID;
-        }
-    }
-    for(int i=0;i<nMaxObjectID;i++){
-        if(vvpSameIDObject[i].size()<2){
-            continue;
-        }
-        cv::Mat tmpMat=vvpSameIDObject[i][0]->GetWorldPos()*vvpSameIDObject[i][0]->mvObjectIDPos.size();
-        for(vector<MapPoint*>::iterator vit=vvpSameIDObject[i].begin()+1, vend=vvpSameIDObject[i].end(); vit != vend; vit++){
-            MapPoint* pMPObj = *vit;
-            tmpMat+=pMPObj->GetWorldPos();
-            vvpSameIDObject[i][0]->mvObjectIDPos.push_back(pMPObj->GetWorldPos());
-        }
-        vvpSameIDObject[i][0]->SetWorldPos(tmpMat/vvpSameIDObject[i][0]->mvObjectIDPos.size());
-        for(vector<MapPoint*>::iterator vit=vvpSameIDObject[i].begin()+1, vend=vvpSameIDObject[i].end(); vit != vend; vit++){
-            MapPoint* pMPObj = *vit;
-            pMPObj->Replace(vvpSameIDObject[i][0]);
-        }
-        vvpSameIDObject[i].clear();
-    }
-}
-
 // 将某个关键帧加入到回环检测的过程中,由局部建图线程调用
 void LoopClosing::InsertKeyFrame(KeyFrame *pKF)
 {
     unique_lock<mutex> lock(mMutexLoopQueue);
     // 注意：这里第0个关键帧不能够参与到回环检测的过程中,因为第0关键帧定义了整个地图的世界坐标系
-    if(pKF->mnID != 0)
-        mlpLoopKeyFrameQueue.push_back(pKF);
+    if(pKF->mnId != 0)
+        mlpLoopKeyFrameQueue.emplace_back(pKF);
 }
 
 /*
@@ -201,7 +164,7 @@ bool LoopClosing::DetectLoop()
     //If the map contains less than 10 KF or less than 10 KF have passed from last loop detection
     // Step 2：如果距离上次闭环没多久（小于10帧），或者map中关键帧总共还没有10帧，则不进行闭环检测
     // 后者的体现是当mLastLoopKFid为0的时候
-    if(mpCurrentKF->mnID < mLastLoopKFid + mnfpsByCfgFile){
+    if(mpCurrentKF->mnId < mLastLoopKFid + mnfpsByCfgFile){
         mpKeyFrameDB->addKFtoDB(mpCurrentKF);
         mpCurrentKF->SetErase();
         return false;
@@ -318,7 +281,7 @@ bool LoopClosing::DetectLoop()
                     // 将该“子候选组”的该关键帧打上连续编号加入到“当前连续组”
                     ConsistentGroup cg = make_pair(spCandidateGroup,nCurrentConsistency);
                     // 放入本次闭环检测的连续组vCurrentConsistentGroups里
-                    vCurrentConsistentGroups.push_back(cg);
+                    vCurrentConsistentGroups.emplace_back(cg);
                     //this avoid to include the same group more than once
                     // 标记一下，防止重复添加到同一个索引iG
                     // 但是spCandidateGroup可能重复添加到不同的索引iG对应的vbConsistentGroup 中
@@ -329,7 +292,7 @@ bool LoopClosing::DetectLoop()
                 // 足够连续的标记 bEnoughConsistent
                 if(nCurrentConsistency>=mnCovisibilityConsistencyTh && !bEnoughConsistent){
                     // 记录为达到连续条件了
-                    mvpEnoughConsistentCandidates.push_back(pCandidateKF);
+                    mvpEnoughConsistentCandidates.emplace_back(pCandidateKF);
                     //this avoid to insert the same candidate more than once
                     // 标记一下，防止重复添加
                     bEnoughConsistent=true; 
@@ -346,7 +309,7 @@ bool LoopClosing::DetectLoop()
         // 于是就把“子候选组”全部拷贝到 vCurrentConsistentGroups， 用于更新mvConsistentGroups，连续性计数器设为0
         if(!bConsistentForSomeGroup){
             ConsistentGroup cg = make_pair(spCandidateGroup,0);
-            vCurrentConsistentGroups.push_back(cg);
+            vCurrentConsistentGroups.emplace_back(cg);
         }
     }// 遍历得到的初级的候选关键帧
 
@@ -443,7 +406,7 @@ bool LoopClosing::ComputeSim3()
             pSolver->SetRansacParameters(0.99,mnSingleMatchKeyPoint,300);
             vpSim3Solvers[i] = pSolver;
             // 保留的候选帧数量
-            vnCandidates.push_back(i);
+            vnCandidates.emplace_back(i);
         }
     }
 
@@ -538,23 +501,23 @@ bool LoopClosing::ComputeSim3()
     vector<KeyFrame*> vpLoopConnectedKFs = mpMatchedKF->GetVectorCovisibleKeyFrames();
 
     // 包含闭环匹配关键帧本身,形成一个“闭环关键帧小组“
-    vpLoopConnectedKFs.push_back(mpMatchedKF);
+    vpLoopConnectedKFs.emplace_back(mpMatchedKF);
     mvpLoopMapPoints.clear();
 
     // 遍历这个组中的每一个关键帧
     for(vector<KeyFrame*>::iterator vit=vpLoopConnectedKFs.begin(); vit!=vpLoopConnectedKFs.end(); vit++){
         KeyFrame* pKF = *vit;
-        vector<MapPoint*> vpMapPoints = pKF->GetAllMapPointInKF();
+        vector<MapPoint*> vpMapPoints = pKF->GetAllMapPointVectorInKF();
 
         // 遍历其中一个关键帧的所有有效地图点
         for(size_t i=0, iend=vpMapPoints.size(); i<iend; i++){
             MapPoint* pMP = vpMapPoints[i];
             if(pMP){
                 // mnLoopPointForKF 用于标记，避免重复添加
-                if(!pMP->isBad() && pMP->mnLoopPointForKF!=mpCurrentKF->mnID){
-                    mvpLoopMapPoints.push_back(pMP);
+                if(!pMP->isBad() && pMP->mnLoopPointForKF!=mpCurrentKF->mnId){
+                    mvpLoopMapPoints.emplace_back(pMP);
                     // 标记一下
-                    pMP->mnLoopPointForKF=mpCurrentKF->mnID;
+                    pMP->mnLoopPointForKF=mpCurrentKF->mnId;
                 }
             }
         }
@@ -654,7 +617,7 @@ void LoopClosing::CorrectLoop()
 
     // 取出当前关键帧及其共视关键帧，称为“当前关键帧组”
     mvpCurrentConnectedKFs = mpCurrentKF->GetVectorCovisibleKeyFrames();
-    mvpCurrentConnectedKFs.push_back(mpCurrentKF);
+    mvpCurrentConnectedKFs.emplace_back(mpCurrentKF);
 
     // CorrectedSim3：存放闭环g2o优化后当前关键帧的共视关键帧的世界坐标系下Sim3 变换
     // NonCorrectedSim3：存放没有矫正的当前关键帧的共视关键帧的世界坐标系下Sim3 变换
@@ -711,7 +674,7 @@ void LoopClosing::CorrectLoop()
             g2o::Sim3 g2oCorrectedSwi = g2oCorrectedSiw.inverse();
             // 取出未经过位姿传播的Sim3变换
             g2o::Sim3 g2oSiw =NonCorrectedSim3[pKFi];
-            vector<MapPoint*> vpMPsi = pKFi->GetAllMapPointInKF();
+            vector<MapPoint*> vpMPsi = pKFi->GetAllMapPointVectorInKF();
             // 遍历待矫正共视关键帧中的每一个地图点
             for(size_t iMP=0, endMPi = vpMPsi.size(); iMP<endMPi; iMP++){
                 MapPoint* pMPi = vpMPsi[iMP];
@@ -723,7 +686,7 @@ void LoopClosing::CorrectLoop()
                     continue;
                 }
                 // 标记，防止重复矫正
-                if(pMPi->mnCorrectedByKF==mpCurrentKF->mnID)
+                if(pMPi->mnCorrectedByKF==mpCurrentKF->mnId)
                     continue;
                 // 矫正过程本质上也是基于当前关键帧的优化后的位姿展开的
                 // Project with non-corrected pose and project back with corrected pose
@@ -737,9 +700,9 @@ void LoopClosing::CorrectLoop()
                 cv::Mat cvCorrectedP3Dw = Converter::toCvMat(eigCorrectedP3Dw);
                 pMPi->SetWorldPos(cvCorrectedP3Dw);
                 // 记录矫正该地图点的关键帧id，防止重复
-                pMPi->mnCorrectedByKF = mpCurrentKF->mnID;
+                pMPi->mnCorrectedByKF = mpCurrentKF->mnId;
                 // 记录该地图点所在的关键帧id
-                pMPi->mnCorrectedReference = pKFi->mnID;
+                pMPi->mnCorrectedReference = pKFi->mnId;
                 // 因为地图点更新了，需要更新其平均观测方向以及观测距离范围
                 pMPi->UpdateNormalAndDepth();
             }
@@ -836,12 +799,12 @@ void LoopClosing::CorrectLoop()
     mbRunningGBA = true;
     mbFinishedGBA = false;
     mbStopGBA = false;
-    mpThreadGBA = new thread(&LoopClosing::RunGlobalBundleAdjustment,this,mpCurrentKF->mnID);
+    mpThreadGBA = new thread(&LoopClosing::RunGlobalBundleAdjustment,this,mpCurrentKF->mnId);
 
     // Loop closed. ReleaseNewKFinList Local Mapping.
     mpLocalMapper->ReleaseNewKFinList();
     cout << "Loop Closed!" << endl;
-    mLastLoopKFid = mpCurrentKF->mnID;
+    mLastLoopKFid = mpCurrentKF->mnId;
 }
 
 /**
@@ -1008,7 +971,7 @@ void LoopClosing::RunGlobalBundleAdjustment(unsigned long nLoopKF)
                         pChild->mnBAGlobalForKF=nLoopKF;
 
                     }
-                    lpKFtoCheck.push_back(pChild);
+                    lpKFtoCheck.emplace_back(pChild);
                 }
                 // 记录未矫正的关键帧的位姿
                 pKF->mTcwBefGBA = pKF->GetPose();
