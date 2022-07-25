@@ -40,7 +40,7 @@
 #include "MapPoint.h"
 #include "KeyFrame.h"
 #include "Frame.h"
-
+#include "LoopClosing.h"
 
 namespace ORB_SLAM2
 {
@@ -54,7 +54,7 @@ public:
      * @param nnratio  ratio of the best and the second score   最优和次优评分的比例
      * @param checkOri check orientation                        是否检查方向
      */
-    ORBmatcher(float nnratio=0.6, bool checkOri=true);
+    ORBmatcher(float nnratio=0.6, bool checkOri=true, Map* pMap=NULL);
 
     /**
      * @brief Computes the Hamming distance between two ORB descriptors 计算地图点和候选投影点的描述子距离
@@ -187,7 +187,7 @@ public:
      * @param[in] th            搜索窗口的阈值
      * @return int 
      */
-    int FuseRedundantMapPointAndSameIdObjectInLocalMap(KeyFrame* pKF, const vector<MapPoint *> &vpMapPoints, const float th=3.0, bool bInLoopClose = false);
+    int FuseRedundantMapPointAndObjectByProjectInLocalMap(KeyFrame* pKF, const vector<MapPoint *> &vpMapPoints, const float th= 3.0);
     int FuseRedundantDifferIdObjectInLocalMap(KeyFrame* pKF, const vector<MapPoint *> &vpMapPoints, vector<int> &vnSameObjectIdMap, set<int> &sLinkedObjectID, const int nMaxObjectID, bool notRecursion = false, const float th = 1.5);
 
     // Project MapPoints into KeyFrame using a given Sim3 and search for duplicated MapPoints.
@@ -237,7 +237,7 @@ protected:
      * @param[in & out] ind3          bin值第三大对应的索引
      */
     void ComputeThreeMaxOrienta(int &ind1, int &ind2, int &ind3);
-
+    Map* mpMap;
     float mfNNratio;            ///< 最优评分和次优评分的比例
     bool mbCheckOrientation;    ///< 是否检查特征点的方向
 };

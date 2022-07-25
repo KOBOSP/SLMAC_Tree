@@ -513,7 +513,7 @@ void Optimizer::OptimizeLocalMapPoint(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
     // 遍历局部关键帧中的每一个关键帧
     for(list<KeyFrame*>::iterator lit=lLocalKeyFrames.begin() , lend=lLocalKeyFrames.end(); lit!=lend; lit++){
         // 取出该关键帧对应的地图点
-        vector<MapPoint*> vpMPs = (*lit)->GetAllMapPointVectorInKF(true);
+        vector<MapPoint*> vpMPs = (*lit)->GetAllMapPointVectorInKF(false);
         // 遍历这个关键帧观测到的每一个地图点，加入到局部地图点
         for(vector<MapPoint*>::iterator vit=vpMPs.begin(), vend=vpMPs.end(); vit!=vend; vit++){
             MapPoint* pMP = *vit;
@@ -608,18 +608,10 @@ void Optimizer::OptimizeLocalMapPoint(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
     vpEdgeKFMono.reserve(nExpectedSize);
     vector<MapPoint*> vpMapPointEdgeMono;
     vpMapPointEdgeMono.reserve(nExpectedSize);
-    vector<g2o::EdgeStereoSE3ProjectXYZ*> vpEdgesStereo;
-    vpEdgesStereo.reserve(nExpectedSize);
-    vector<KeyFrame*> vpEdgeKFStereo;
-    vpEdgeKFStereo.reserve(nExpectedSize);
-    vector<MapPoint*> vpMapPointEdgeStereo;
-    vpMapPointEdgeStereo.reserve(nExpectedSize);
 
     // 自由度为2的卡方分布，显著性水平为0.05，对应的临界阈值5.991
     const float thHuberMono = sqrt(5.991);
 
-    // 自由度为3的卡方分布，显著性水平为0.05，对应的临界阈值7.815
-    const float thHuberStereo = sqrt(7.815);
 
     // 遍历所有的局部地图点
     for(list<MapPoint*>::iterator lit=lLocalMapPoints.begin(), lend=lLocalMapPoints.end(); lit!=lend; lit++)
@@ -722,20 +714,6 @@ void Optimizer::OptimizeLocalMapPoint(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
             e->setRobustKernel(0);
         }
 
-        // 对于所有的双目的误差边也都进行类似的操作
-        for(size_t i=0, iend=vpEdgesStereo.size(); i<iend;i++){
-            g2o::EdgeStereoSE3ProjectXYZ* e = vpEdgesStereo[i];
-            MapPoint* pMP = vpMapPointEdgeStereo[i];
-            // 跳过无效地图点
-            if(pMP->GetbBad()){
-                continue;
-            }
-            // 自由度为3的卡方分布，显著性水平为0.05，对应的临界阈值7.815
-            if(e->chi2()>7.815 || !e->isDepthPositive()){
-                e->setLevel(1);
-            }
-            e->setRobustKernel(0);
-        }
         // Optimize again without the outliers
         // Step 11：排除误差较大的outlier后再次优化 -- 第二阶段优化
         optimizer.initializeOptimization(0);
@@ -743,7 +721,7 @@ void Optimizer::OptimizeLocalMapPoint(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
     }
 
     vector<pair<KeyFrame*,MapPoint*> > vToErase;
-    vToErase.reserve(vpEdgesMono.size()+vpEdgesStereo.size());
+    vToErase.reserve(vpEdgesMono.size());
 
     // Check inlier observations
     // Step 12：在优化后重新计算误差，剔除连接误差比较大的关键帧和地图点
@@ -765,20 +743,6 @@ void Optimizer::OptimizeLocalMapPoint(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
         }
     }
 
-    // 双目误差边
-    for(size_t i=0, iend=vpEdgesStereo.size(); i<iend;i++){
-        g2o::EdgeStereoSE3ProjectXYZ* e = vpEdgesStereo[i];
-        MapPoint* pMP = vpMapPointEdgeStereo[i];
-        // 跳过无效地图点
-        if(pMP->GetbBad()){
-            continue;
-        }
-
-        if(e->chi2()>7.815 || !e->isDepthPositive()){
-            KeyFrame* pKFi = vpEdgeKFStereo[i];
-            vToErase.emplace_back(make_pair(pKFi,pMP));
-        }
-    }
 
     // Get Map Mutex
     unique_lock<mutex> lock(pMap->mMutexMapUpdate);

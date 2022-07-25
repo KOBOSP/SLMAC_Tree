@@ -364,13 +364,15 @@ cv::Mat Tracking::InitialOrDoORBTrack(){
             bOK = false;
             if(!mSim3VoGps.empty()) {
                 bOK = TrackWithGpsTranslation(vKFNearest);
-                cout<<"TrackWithGpsTranslation bOK "<<bOK<<endl;
+                if(bOK)
+                    cout<<"TrackWithGpsTranslation bOK "<<endl;
             }
             // 如果跟踪状态不成功,那么就只能重定位了
             // BOW搜索，EPnP求解位姿
             if (!bOK) {
                 bOK = Relocalization();
-                cout<<"Relocalization bOK "<<bOK<<endl;
+                if(bOK)
+                    cout<<"Relocalization bOK "<<endl;
             }
         }
 
@@ -743,7 +745,7 @@ void Tracking::CreateInitialMapMonocular()
  * @brief 检查上一帧中的地图点是否需要被替换
  * 
  * Local Mapping线程可能会将关键帧中某些地图点进行替换，由于tracking中需要用到上一帧地图点，所以这里检查并更新上一帧中被替换的地图点
- * @see LocalMapping::FuseMapPointsByNeighbors()
+ * @see LocalMapping::FuseMapPointsAndObjectsByNeighbors()
  */
 void Tracking::CheckReplacedInLastFrame(){
     for(int i =0; i<mLastFrame.mnKeyPointNum; i++){
@@ -965,7 +967,7 @@ bool Tracking::TrackWithMotionModel()
             if (pMP->GetbBad()) {
                 continue;
             }
-            if (pMP->mnObjectID > 0) {
+            if (pMP->GetObjectId() > 0) {
                 continue;
             }
             if (pMP->mnFrameIdForGpsOrMotion == mCurrentFrame.mnId) {
@@ -1640,20 +1642,22 @@ void Tracking::Reset()
     }
     cout << "System Reseting" << endl;
 
-    // Reset Local Mapping
-    cout << "Reseting Local Mapper...";
-    mpLocalMapper->RequestReset();
-    cout << " done" << endl;
-
     // Reset Loop Closing
     cout << "Reseting Loop Closing...";
     mpLoopClosing->RequestReset();
+    cout << " done" << endl;
+
+    // Reset Local Mapping
+    cout << "Reseting Local Mapper...";
+    mpLocalMapper->RequestReset();
     cout << " done" << endl;
 
     // Clear BoW Database
     cout << "Reseting Database...";
     mpKeyFrameDB->clearAllKFinDB();
     cout << " done" << endl;
+
+
 
     // Clear Map (this eraseKFromDB MapPoints and KeyFrames)
     mpMap->clear();

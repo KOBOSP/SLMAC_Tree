@@ -112,6 +112,7 @@ public:
     /** @brief 由外部线程调用,判断当前回环检测线程是否已经正确终止了  */
     bool isFinished();
 
+
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
 protected:
@@ -120,7 +121,7 @@ protected:
     void UpdataGPSToVOSim3InLoopClosing();
     void LinkObjectIdByProjectGlobalMapToCurrentKF();
     void LinkObjectIdByProjectGlobalMapToAllKF();
-    int GetRootIdxToSameObjectIdMap(int idx);
+    void LinkObjectIdBySearchGpsLocation();
 
     /** @brief 查看列表中是否有等待被插入的关键帧
      *  @return true 如果有
@@ -141,7 +142,6 @@ protected:
      * 对于双目或者是RGBD输入的情况,计算得到的尺度=1
      */
     bool ComputeBoWAndSim3ToMatchPointsByMapPoint();
-    bool ComputeBoWAndSim3ToMatchPointsByObject();
 
     /**
      * @brief 通过将闭环时相连关键帧的MapPoints投影到这些关键帧中，进行MapPoints检查与替换
@@ -159,7 +159,6 @@ protected:
      * 5. 创建线程进行全局Bundle Adjustment
      */
     void CorrectLoopByMapPoint();
-    void CorrectLoopByObject();
 
 
     /** @brief  当前线程调用,检查是否有外部线程请求复位当前线程,如果有的话就复位回环检测线程 */
@@ -209,7 +208,6 @@ protected:
     int mnTotalMatchObject;
     int mnFuseMPByObjectSceneTh;
     int mnDetectLoopByFusedMPNumTh;
-    std::vector<int> mvnSameObjectIdMap;
     std::set<int> msLinkedObjectID;
     // Loop detector variables
     /// 当前关键帧,其实称之为"当前正在处理的关键帧"更加合适

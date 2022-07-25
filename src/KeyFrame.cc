@@ -365,7 +365,7 @@ vector<MapPoint*> KeyFrame::GetAllMapPointVectorInKF(bool bNeedObject)
     for(int i=0;i<mnKeyPointNum;i++){
         MapPoint* pMP = mvpMapPoints[i];// because return MP is in sequence, so should not ignore it even NULL
         if(pMP){
-            if(pMP->GetbBad()||(pMP->mnObjectID>0 && !bNeedObject)){
+            if(pMP->GetbBad()||(pMP->GetObjectId()>0 && !bNeedObject)){
                 pMP = static_cast<MapPoint *>(NULL);
             }
         }
@@ -384,7 +384,7 @@ vector<MapPoint*> KeyFrame::GetAllObjctsInKF()
             if(pMP->GetbBad()){
                 continue;
             }
-            if(pMP->mnObjectID>0){
+            if(pMP->GetObjectId()>0){
                 tmp.emplace_back(pMP);
             }
         }
@@ -620,10 +620,22 @@ void KeyFrame::SetCanErase()
 void KeyFrame::SetBadFlag()
 {   
     // Step 1 首先处理一下删除不了的特殊情况
+    bool bHaveObject= false;
+    for(size_t i=0; i<mvpMapPoints.size(); i++){
+        if(mvpMapPoints[i]){
+            if(mvpMapPoints[i]->GetbBad()){
+                continue;
+            }
+            if(mvpMapPoints[i]->GetObjectId()>0){
+                bHaveObject= true;
+                break;
+            }
+        }
+    }
     {
         unique_lock<mutex> lock(mMutexConnections);
         // 第0关键帧不允许被删除
-        if(mnId == 0)
+        if(mnId == 0||bHaveObject== true)
             return;
         else if(mbNotEraseInLoop){
             // mbNotErase表示不应该删除，于是把mbToBeErased置为true，假装已经删除，其实没有删除
@@ -761,6 +773,7 @@ void KeyFrame::EraseConnection(KeyFrame* pKF)
 }
 
 // 获取某个特征点的邻域中的特征点id,其实这个和 Frame.cc 中的那个函数基本上都是一致的; r为边长（半径）
+// only target or only KeyPoint
 vector<size_t> KeyFrame::GetKeyPointsByArea(const float &x, const float &y, const float &r, const bool OnlyTarget) const
 {
     vector<size_t> vIndices;
@@ -831,7 +844,7 @@ vector<size_t> KeyFrame::GetMapPointByObjectID(int ClassID){
             continue;
         if(mvpMapPoints[i]->GetbBad())
             continue;
-        if(mvpMapPoints[i]->mnObjectID == ClassID){
+        if(mvpMapPoints[i]->GetObjectId() == ClassID){
             vIndices.emplace_back(i);
         }
     }

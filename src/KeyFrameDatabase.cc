@@ -132,7 +132,13 @@ namespace ORB_SLAM2 {
                 list<KeyFrame *> &lKFs = mvKFListHasWord[vit->first];
                 // 然后对这些关键帧展开遍历
                 for (list<KeyFrame *>::iterator lit = lKFs.begin(), lend = lKFs.end(); lit != lend; lit++) {
-                    KeyFrame *pKFi = *lit;
+                    KeyFrame *pKFi = (*lit);
+                    if(!pKFi){
+                        continue;
+                    }
+                    if(pKFi->isBad()){
+                        continue;
+                    }
                     // 还没有标记为pKF的闭环候选帧
                     // 和当前关键帧共视的话不作为闭环候选帧
                     if (pKFi->mnFrameIDShareWord != pKF->mnId){

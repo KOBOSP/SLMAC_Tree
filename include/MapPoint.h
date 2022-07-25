@@ -70,11 +70,13 @@ public:
      * @param[in] Pos 世界坐标系下地图点的位姿 
      */
     void SetWorldPos(const cv::Mat &Pos);
+    void SetGpsPos(const cv::Mat &Pos);
     /**
      * @brief 获取当前地图点在世界坐标系下的位置
      * @return cv::Mat 位置
      */
     cv::Mat GetWorldPos();
+    cv::Mat GetGpsPos();
 
     /**
      * @brief 获取当前地图点的平均观测方向
@@ -141,7 +143,6 @@ public:
      * @return false 
      */
     bool GetbBad();
-    void SetbBad(bool val);
 
     /**
      * @brief 在形成闭环的时候，会更新 KeyFrame 与 MapPoint 之间的关系
@@ -149,7 +150,7 @@ public:
      * 
      * @param[in] pMP 地图点
      */
-    void Replace(MapPoint* pMP);
+    void Replace(MapPoint* pMP, bool bUpdataWeight=false);
     /**
      * @brief 获取取代当前地图点的点? //?
      * 
@@ -209,13 +210,19 @@ public:
     //? 
     int PredictScale(const float &currentDist, Frame* pF);
 
+    static bool lId(MapPoint *pMP1, MapPoint *pMP2) {
+        return pMP1->mnObjectID < pMP2->mnObjectID;
+    }
+
+    int GetObjectId();
+    int SetObjectId(int nObjId);
+
 public:
     long unsigned int mnId; ///< Global ID for MapPoint
     static long unsigned int nNextId;
     const long int mnFirstKFid; ///< 创建该MapPoint的关键帧ID
 
 
-    int mnObjectID;
     float mfObjectRadius;
 
     // Variables used by the tracking
@@ -255,7 +262,7 @@ public:
     long unsigned int mnCorrectedReference;
     // 全局BA优化后(如果当前地图点参加了的话),这里记录优化后的位姿
     cv::Mat mPosGBA;
-    std::vector< pair<cv::Mat,int> > mvObjectReplacePosAndTimes;//save the MP's all possible position
+    int mObjectsReplaceWeight;//save the MP's all possible position
 
     // 如果当前点的位姿参与到了全局BA优化,那么这个变量记录了那个引起全局BA的"当前关键帧"的id
     long unsigned int mnBAGlobalForKF;
@@ -270,6 +277,8 @@ protected:
 
     // Position in absolute coordinates
     cv::Mat mWorldPos; ///< MapPoint在世界坐标系下的坐标
+    cv::Mat mGpsPos; ///< MapPoint在GPS下的坐标
+    int mnObjectID;
 
     // Keyframes observing the point and associated index in keyframe
     // 观测到该MapPoint的KF和该MapPoint在KF中的索引
@@ -308,10 +317,10 @@ protected:
 
     ///对当前地图点位姿进行操作的时候的互斥量
     std::mutex mMutexPos;
+    std::mutex mMutexObjId;
     ///对当前地图点的特征信息进行操作的时候的互斥量
     std::mutex mMutexFeatures;
-    ///
-    std::mutex mMutexBad;
+
 };
 
 } //namespace ORB_SLAM

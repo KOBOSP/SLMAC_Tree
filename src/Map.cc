@@ -42,6 +42,31 @@ Map::Map(int nMaxObjectID): mnMaxKeyFrameID(0)
 {
     mnMaxObjectID=nMaxObjectID;
     mvnObjectNumByID.resize(nMaxObjectID,0);
+    mvnSameObjectIdMap.resize(nMaxObjectID,0);
+    for(int i=0;i<nMaxObjectID;i++){
+        mvnSameObjectIdMap[i]=i;
+    }
+}
+
+int Map::GetRootIdxToSameObjectIdMap(int idx){
+    if(idx<0){
+        return -1;
+    }
+    unique_lock<mutex> lock(mMutexDsu);
+    while(mvnSameObjectIdMap[idx]!=idx){
+//        cout<<"+++++++"<<idx<<" "<<mvnSameObjectIdMap[idx];
+        idx=mvnSameObjectIdMap[idx];
+    }
+    return idx;
+}
+
+int Map::SetRootIdxToSameObjectIdMap(int idx, int root) {
+    unique_lock<mutex> lock(mMutexDsu);
+    if (idx < 0 || root < 0 || idx > mnMaxObjectID || root > mnMaxObjectID) {
+        return -1;
+    }
+    mvnSameObjectIdMap[idx]=root;
+    return 0;
 }
 
 /*
@@ -151,7 +176,7 @@ vector<MapPoint*> Map::GetAllMapPoints(bool bNeedObject)
     unique_lock<mutex> lock(mMutexMap);
     vector<MapPoint*> tmp;
     for(set<MapPoint*>::iterator ipMP=mspMapPoints.begin();ipMP!=mspMapPoints.end();ipMP++){
-        if((*ipMP)->mnObjectID>0 && !bNeedObject){
+        if((*ipMP)->GetObjectId()>0 && !bNeedObject){
             continue;
         }
         tmp.emplace_back((*ipMP));
@@ -162,7 +187,7 @@ vector<MapPoint*> Map::GetAllMapPoints(bool bNeedObject)
 void Map::GetAllObjectsInMap(vector<MapPoint*> &vMPs){
     unique_lock<mutex> lock(mMutexMap);
     for(set<MapPoint*>::iterator ipMP=mspMapPoints.begin();ipMP!=mspMapPoints.end();ipMP++){
-        if((*ipMP)->mnObjectID>0){
+        if((*ipMP)->GetObjectId()>0){
             vMPs.emplace_back((*ipMP));
         }
     }
@@ -173,7 +198,7 @@ long unsigned int Map::GetObcjectsNumInMap()
     unique_lock<mutex> lock(mMutexMap);
     long unsigned int num=0;
     for(set<MapPoint*>::iterator ipMP=mspMapPoints.begin();ipMP!=mspMapPoints.end();ipMP++){
-        if((*ipMP)->mnObjectID>0){
+        if((*ipMP)->GetObjectId()>0){
             num++;
         }
     }
@@ -219,11 +244,13 @@ long unsigned int Map::GetMaxKeyFrameID()
 //清空地图中的数据
 void Map::clear()
 {
-    for(set<MapPoint*>::iterator sit=mspMapPoints.begin(), send=mspMapPoints.end(); sit!=send; sit++)
+    for(set<MapPoint*>::iterator sit=mspMapPoints.begin(), send=mspMapPoints.end(); sit!=send; sit++){
         delete *sit;
+    }
 
-    for(set<KeyFrame*>::iterator sit=mspKeyFrames.begin(), send=mspKeyFrames.end(); sit!=send; sit++)
+    for(set<KeyFrame*>::iterator sit=mspKeyFrames.begin(), send=mspKeyFrames.end(); sit!=send; sit++){
         delete *sit;
+    }
 
     mspMapPoints.clear();
     mspKeyFrames.clear();

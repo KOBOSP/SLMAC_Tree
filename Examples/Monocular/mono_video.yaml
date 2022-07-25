@@ -21,26 +21,26 @@ Camera.p1: 0
 Camera.p2: 0
 Camera.k3: 0
 
-#camera is process frame
-Camera.width: 720
-Camera.height: 480
-Camera.fps: 5
-
-# Color order of the images (0: BGR, 1: RGB. It is ignored if images are grayscale)
-Camera.RGB: 0
 
 # Camera frames per second
 # image is input
 Image.width: 720
 Image.height: 480
-Image.height: 480
-
+Image.FrameNum: 1288
+#camera is process frame
+Camera.width: 720
+Camera.height: 480
+Camera.fps: 5
+ 
+# Color order of the images (0: BGR, 1: RGB. It is ignored if images are grayscale)
+Camera.RGB: 0
+ 
 #--------------------------------------------------------------------------------------------
 # ORB Parameters
 #--------------------------------------------------------------------------------------------
  
 # ORB Extractor: Number of features per image
-ORBextractor.nFeatures: 1500
+ORBextractor.nFeatures: 3000
  
 # ORB Extractor: Scale factor between levels in the scale pyramid     
 ORBextractor.scaleFactor: 1.2
@@ -58,25 +58,27 @@ Track.GoodMMOrRKFVOThreshold: 20
 Track.LossMMOrRKFVOThreshold: 10
 Track.GoodLMVOThreshold: 40
 Track.LossLMVOThreshold: 20
-Track.MaxObjectID: 5000
+Track.MaxObjectID: 3000
 LocalMap.CullKFRedundantMPRate: 60
 LoopClose.CovisibilityConsistencyTh: 3
 LoopClose.SingleMatchKeyPoint: 5
 LoopClose.TotalMatchKeyPoint: 30
 LoopClose.SingleMatchObject: 5
 LoopClose.TotalMatchObject: 10
-LoopClose.SystemWithoutLoopClose: 1
+LoopClose.SystemWithoutLoopClose: 0
 LoopClose.FuseMPByObjectSceneThreshold: 5
 LoopClose.DetectLoopByFusedMPNumThreshold: 20
 KFDB.radioCommonWord: 0.8
 KFDB.radioAccScore: 0.7
- 
+Map.SaveKeyFrameGps: 1
+Map.bSaveObjectsGps: 1
 #--------------------------------------------------------------------------------------------
 # Viewer Parameters
 #--------------------------------------------------------------------------------------------
 Viewer.KeyFrameSize: 0.05
 Viewer.KeyFrameLineWidth: 1
 Viewer.GraphLineWidth: 0.9
+Viewer.MapPointFrameWidth: 0.5
 Viewer.PointSize: 2
 Viewer.CameraSize: 0.08
 Viewer.CameraLineWidth: 3

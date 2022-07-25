@@ -76,8 +76,10 @@ void Viewer::Run()
     // 新建按钮和选择框，第一个参数为按钮的名字，第二个为默认状态，第三个为是否有选择框
     pangolin::CreatePanel("menu").SetBounds(0.0,1.0,0.0,pangolin::Attach::Pix(175));
     pangolin::Var<bool> menuFollowCamera("menu.Follow Camera",true,true);
-    pangolin::Var<bool> menuShowPoints("menu.Show Points",true,true);
+    pangolin::Var<bool> menuShowMapPoints("menu.Show MapPoints",true,true);
+    pangolin::Var<bool> menuShowObjects("menu.Show Objects",true,true);
     pangolin::Var<bool> menuShowKeyFrames("menu.Show KeyFrames",true,true);
+    pangolin::Var<bool> menuShowObjFraLine("menu.Show Obj-Fra Line",true,true);
     pangolin::Var<bool> menuShowGraph("menu.Show Graph",true,true);
     pangolin::Var<bool> menuLocalizationMode("menu.Localization Mode",false,true);
     pangolin::Var<bool> menuReset("menu.Reset",false,false);
@@ -159,8 +161,11 @@ void Viewer::Run()
         if(menuShowKeyFrames || menuShowGraph)
             mpMapDrawer->DrawKeyFrames(menuShowKeyFrames,menuShowGraph);
         //绘制地图点
-        if(menuShowPoints)
-            mpMapDrawer->DrawMapPoints();
+        mpMapDrawer->mbShowObjects=menuShowObjects;
+        mpMapDrawer->mbShowMapPoints=menuShowMapPoints;
+        mpMapDrawer->mbShowObjFraLine=menuShowObjFraLine;
+        mpMapDrawer->DrawMapPoints();
+
 
         pangolin::FinishFrame();
 
@@ -176,7 +181,8 @@ void Viewer::Run()
             //将所有的GUI控件恢复初始状态
             menuShowGraph = true;
             menuShowKeyFrames = true;
-            menuShowPoints = true;
+            menuShowMapPoints = true;
+            menuShowObjects = true;
             menuLocalizationMode = false;
             if(bLocalizationMode)
                 mpSystem->DeactivateLocalizationMode();

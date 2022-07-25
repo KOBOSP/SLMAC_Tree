@@ -1,5 +1,3 @@
-
-
 #include "System.h"
 #include <string>
 #include <chrono>
@@ -27,6 +25,9 @@ int main(int argc, char **argv) {
     cv::FileStorage fSettings(argv[2], cv::FileStorage::READ);
     int frame_width=fSettings["Camera.width"];
     int frame_height=fSettings["Camera.height"];
+    int nFrameNum=fSettings["Image.FrameNum"];
+    int bSaveKeyFramesGps = fSettings["Map.SaveKeyFrameGps"];
+    int bSaveObjectsGps = fSettings["Map.bSaveObjectsGps"];
     auto TimeSystemInit = chrono::system_clock::now();
     cv::Mat TgpsFrame, TgpsFirst;
     TgpsFirst = cv::Mat(3, 1, CV_32F);
@@ -34,19 +35,33 @@ int main(int argc, char **argv) {
 
     ORB_SLAM2::System orb_slam2(argv[1], argv[2], ORB_SLAM2::System::MONOCULAR, true);
     std::string sDetectImageLoLaAtPath = argv[3];
-    long unsigned int nFrameID = 1, nTargetID = 1, nClassID, nAngDiv=8;
+
+    long unsigned int nFrameID = 1, nTargetID, nMaxTarInFrame=60;
+    int tmpTargetX, tmpTargetY, tmpTargetL, tmpTargetH, tmpConfid;
+    vector<cv::KeyPoint> vTarsInFrame;
+    vTarsInFrame.resize(nMaxTarInFrame);
+    vector<vector<vector<int> > > vvTarsAllFrame=vector<vector<vector<int>>>(nFrameNum+1,vector<vector<int>>());
+    FILE * fprTarget= fopen ((sDetectImageLoLaAtPath + "compound.txt").c_str(), "r");
+    while(fscanf(fprTarget, "%d %d %d %d %d %d %d %d %d %d\n",&nFrameID, &nTargetID, &tmpTargetX, &tmpTargetY, &tmpTargetL, &tmpTargetH, &tmpConfid, &tmpConfid, &tmpConfid, &tmpConfid)!=-1){
+        int dNowTarRad=sqrt(pow(tmpTargetL,2)+pow(tmpTargetH,2))/3.0;//cute the bargin
+        vector<int>tmp;
+        tmp.emplace_back(nTargetID);
+        tmp.emplace_back(tmpTargetX+tmpTargetL/2);
+        tmp.emplace_back(tmpTargetY+tmpTargetH/2);
+        tmp.emplace_back(dNowTarRad);
+        vvTarsAllFrame[nFrameID].emplace_back(tmp);
+    }
+    fclose(fprTarget);
+
+    nFrameID=1;
+    cv::Mat FrameOrigin, FrameResized;
     double dLon, dLat, dAlt;
     FILE * fprgps= fopen ((sDetectImageLoLaAtPath + "LoLaAt.txt").c_str(), "r");
-    double tmpTargetX, tmpTargetY, tmpTargetL, tmpTargetH, tmpConfid;
-    vector<cv::KeyPoint> vTarsInFrame;
-    vTarsInFrame.resize(50);
-    cv::Mat FrameOrigin, FrameResized;
-    vector<vector<double> > vvdLastFrameTargetPos;
-    vvdLastFrameTargetPos.reserve(70);
-    vector<vector<double> > vvdNowFrameTargetPos;//cenX,cenY,Rad,Id
-    vvdNowFrameTargetPos.reserve(70);
     while(fscanf(fprgps, "%lf %lf %lf\n", &dLon, &dLat, &dAlt) != -1) {
-        if(nFrameID==1288){
+        if(nFrameID==nFrameNum){
+            if(bSaveKeyFramesGps||bSaveObjectsGps){
+                orb_slam2.SaveKeyFrameAndMapPointInGps(sDetectImageLoLaAtPath + "MapPointAndKeyFrame.txt",bSaveKeyFramesGps,bSaveObjectsGps);
+            }
             break;
         }
         if(nFrameID==1){
@@ -58,81 +73,23 @@ int main(int argc, char **argv) {
         TgpsFrame.at<float>(1)=DegreeToRad(TgpsFirst.at<float>(1)-dLat)*EARTH_RADIUS;
         TgpsFrame.at<float>(2)=TgpsFirst.at<float>(2)-dAlt;
 
-        FILE * fprTarget= fopen ((sDetectImageLoLaAtPath + "targets/" + to_string(nFrameID) + ".txt").c_str(), "r");
-        while(fscanf(fprTarget, "%d %lf %lf %lf %lf %lf\n", &nClassID, &tmpTargetX, &tmpTargetY, &tmpTargetL, &tmpTargetH, &tmpConfid)!=-1){
-            double dNowTarRad=sqrt(pow(tmpTargetL*frame_width,2)+pow(tmpTargetH*frame_height,2))/2.0;
-            vector<double>tmp;
-            tmp.emplace_back(tmpTargetX*frame_width);
-            tmp.emplace_back(tmpTargetY*frame_height);
-            tmp.emplace_back(dNowTarRad);
-            tmp.emplace_back(-1);
-            vvdNowFrameTargetPos.emplace_back(tmp);
-        }
-        vector<vector<int> > vnMatchId(vvdNowFrameTargetPos.size(),vector<int>(nAngDiv,-1));
-        vector<vector<double> > vnMatchDis(vvdNowFrameTargetPos.size(),vector<double>(nAngDiv,999));
-        vector<int> vnMatchAng(nAngDiv,0);
-        for(int i=0;i<vvdNowFrameTargetPos.size();i++) {
-            double DiffX,DiffY,DiffDis,Angle;
-            int tmpAng;
-            for(int j=0;j<vvdLastFrameTargetPos.size();j++){
-                DiffX=vvdNowFrameTargetPos[i][0]-vvdLastFrameTargetPos[j][0];
-                DiffY=vvdNowFrameTargetPos[i][1]-vvdLastFrameTargetPos[j][1];
-                DiffDis=sqrt(pow(DiffX,2) + pow(DiffY,2));
-                Angle=RadToDegree(atan(DiffY/DiffX))+((DiffX<0)?270:90);
-                tmpAng=Angle/(360/nAngDiv);
-                if(DiffDis<vvdNowFrameTargetPos[i][2]*2){
-                    vnMatchAng[tmpAng]++;
-                    if(DiffDis<vnMatchDis[i][tmpAng]) {
-                        vnMatchId[i][tmpAng] = j;
-                        vnMatchDis[i][tmpAng] = DiffDis;
-                    }
-                }
-            }
-        }
-        int nFirst=-1,nSecond=-1,nCandidId;
-        for(int i=0;i<nAngDiv;i++){
-            if(vnMatchAng[i]>nFirst){
-                nSecond=nFirst;
-                nFirst=vnMatchAng[i];
-                nCandidId=i;
-            }
-            else if(vnMatchAng[i]>nSecond){
-                nSecond=vnMatchAng[i];
-            }
-        }
-        if(nFirst/2<nSecond){
-            cout<<"nFirst/2<nSecond "<<nFirst/2<<" "<<nSecond<<endl;
-        }
-        for(int i=0;i<vvdNowFrameTargetPos.size();i++) {
-            if(vnMatchId[i][nCandidId]==-1){
-                vvdNowFrameTargetPos[i][3]=nTargetID++;
-            }
-            else{
-                vvdNowFrameTargetPos[i][3]=vnMatchId[i][nCandidId];
-            }
-        }
-        for(int i=0;i<vvdNowFrameTargetPos.size();i++){
-            cout<<"vvdNowFrameTargetPos[i][0] "<<vvdNowFrameTargetPos[i][0]<<" "<<nCandidId<<" "<<vvdNowFrameTargetPos[i][1]<<" "<<vvdNowFrameTargetPos[i][2]<<" "<<vvdNowFrameTargetPos[i][3]<<endl;
-            vTarsInFrame.emplace_back(cv::KeyPoint(cv::Point2f(vvdNowFrameTargetPos[i][0], vvdNowFrameTargetPos[i][1]),
-                                                   vvdNowFrameTargetPos[i][2],
+        for(int i=0;i<vvTarsAllFrame[nFrameID].size();i++){
+            vTarsInFrame.emplace_back(cv::KeyPoint(cv::Point2f(vvTarsAllFrame[nFrameID][i][1], vvTarsAllFrame[nFrameID][i][2]),
+                                                   vvTarsAllFrame[nFrameID][i][3],
                                                    tmpConfid,
                                                    0,
                                                    0,
-                                                   int(vvdNowFrameTargetPos[i][3])));
+                                                   int(vvTarsAllFrame[nFrameID][i][0])));
         }
-        cout<<"vvdLastFrameTargetPos.size()<<\" \"<<vvdNowFrameTargetPos.size() "<<vvdLastFrameTargetPos.size()<<" "<<vvdNowFrameTargetPos.size()<<endl;
-        vvdLastFrameTargetPos.assign(vvdNowFrameTargetPos.begin(),vvdNowFrameTargetPos.end());
-        vvdNowFrameTargetPos.clear();
+
         FrameOrigin = cv::imread((sDetectImageLoLaAtPath + "images/" + to_string(nFrameID) + ".jpg").c_str());
         cv::resize(FrameOrigin, FrameResized, cv::Size(frame_width, frame_height));
         auto TimeStart = chrono::system_clock::now();
         orb_slam2.TrackMonocular(FrameResized, chrono::duration_cast<chrono::milliseconds>(TimeStart- TimeSystemInit).count() / 1000.0, nFrameID++, vTarsInFrame, TgpsFrame);
         vTarsInFrame.clear();
-        fclose(fprTarget);
     }
     fclose(fprgps);
     cv::waitKey(0);
     orb_slam2.Shutdown();
     return 0;
 }
-

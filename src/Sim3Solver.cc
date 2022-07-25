@@ -299,12 +299,13 @@ cv::Mat Sim3Solver::KFsiterate(std::vector<cv::Mat> &vP1s, std::vector<cv::Mat> 
     }
     mbFixScale=false;
     mnBestInliers=-1;
+    mdBestInliersAvgErr=9999;
     // 可以使用的点对的索引,为了避免重复使用
     vector<size_t> vAvailableIndices;
     mvAllIndices.clear();
     mvAllIndices.reserve(nPMostNum);
     mvbInliersi.clear();
-    mvbInliersi.resize(nPMostNum);
+    mvbInliersi.reserve(nPMostNum);
     vbInliers = vector<bool>(nPMostNum,false);    // 的确和最初传递给这个解算器的地图点向量是保持一致
     for(int idx=0;idx<nPMostNum;idx++){
         mvAllIndices.emplace_back(idx);
@@ -342,7 +343,7 @@ cv::Mat Sim3Solver::KFsiterate(std::vector<cv::Mat> &vP1s, std::vector<cv::Mat> 
         cv::Mat ray21=P3Dc2i.col(1)-P3Dc2i.col(0);
         cv::Mat ray22=P3Dc2i.col(2)-P3Dc2i.col(0);
         const float cosParallaxRays1 = ray11.dot(ray12)/(cv::norm(ray11)*cv::norm(ray12));
-        if(abs(cosParallaxRays1)<0.1392&&abs(cosParallaxRays1)>0.9903){//cos8= 0.9903 cos10deg=0.9848 cos15=<0.9659 cos 82=0.1392
+        if(abs(cosParallaxRays1)<0.1392||abs(cosParallaxRays1)>0.9903){//cos8= 0.9903 cos10deg=0.9848 cos15=<0.9659 cos 82=0.1392
             continue;
         }
         // Step 2.2 根据随机取的两组匹配的3D点，计算P3Dc2i 到 P3Dc1i 的Sim3变换. modify:mT12i mt12i mR12i ms12i
@@ -357,7 +358,7 @@ cv::Mat Sim3Solver::KFsiterate(std::vector<cv::Mat> &vP1s, std::vector<cv::Mat> 
             // 首先将对方关键帧的地图点坐标转换到这个关键帧的相机坐标系下
             cv::Mat P3D2in1 = sR21 * vP2s[i] + t21;//1->2: Vo->Gps
             double error=cv::norm(P3D2in1-vP1s[i]);
-            if(error<1.5){//small than 1 meter
+            if(error<1.0){//small than 1 meter
                 mdInliersTotErr+=error;
                 mnInliersi++;
                 mvbInliersi[i]=true;
@@ -378,7 +379,7 @@ cv::Mat Sim3Solver::KFsiterate(std::vector<cv::Mat> &vP1s, std::vector<cv::Mat> 
             mBestScale = ms12i;
         } // 更新最多的内点数目
     } // 迭代循环
-    if(mnBestInliers>nPMostNum*1.0/2.0&&mnBestInliers>15){
+    if(mnBestInliers>nPMostNum*2.0/3.0&&mnBestInliers>50){
         // 返回值,告知得到的内点数目
         nInliers = mnBestInliers;
         for(int i=0; i<nPMostNum; i++){
@@ -386,7 +387,6 @@ cv::Mat Sim3Solver::KFsiterate(std::vector<cv::Mat> &vP1s, std::vector<cv::Mat> 
                 vbInliers[i] = true;
             }
         }
-        cout<<"mdBestInliersAvgErr "<<mdBestInliersAvgErr<<endl;
         return mBestT12;
     }
     else{

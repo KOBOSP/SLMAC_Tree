@@ -151,8 +151,7 @@ protected:
      */
     void CullRecentAddedMapPoints();
     /** @brief 检查并融合当前关键帧与相邻帧（两级相邻）重复的MapPoints */
-    void FuseMapPointsByNeighbors();
-    void FuseObjectsInGlobalMap();
+    void FuseMapPointsAndObjectsByNeighbors();
     /**
      * @brief 关键帧剔除
      * @detials 在Covisibility Graph中的关键帧，其90%以上的MapPoints能被其他关键帧（至少3个）观测到，则认为该关键帧为冗余关键帧。
@@ -208,9 +207,9 @@ protected:
     std::list<KeyFrame*> mlNewKeyFrames; ///< 等待处理的关键帧列表
     /// 当前正在处理的关键帧
     KeyFrame* mpCurrentKeyFrame;
-
+    std::vector<KeyFrame*> mvpNeighKFs;
     /// 存储当前关键帧生成的地图点,也是等待检查的地图点列表
-    std::list<MapPoint*> mlpRecentAddedMapPoints;
+    std::list<MapPoint*> mlpRecentAddedMapAndObjPoints;
 
     /// 操作关键帧列表时使用的互斥量 
     std::mutex mMutexNewKFs;

@@ -89,7 +89,9 @@ public:
      * @param[out] M 
      */
     void GetCurrentOpenGLCameraMatrix(pangolin::OpenGlMatrix &M);
-
+    bool mbShowMapPoints;
+    bool mbShowObjects;
+    bool mbShowObjFraLine;
 private:
 
     //绘制这些部件的参数
@@ -99,6 +101,7 @@ private:
     float mKeyFrameLineWidth;
     ///共视图的线宽
     float mGraphLineWidth;
+    float mMapPointFrameWidth;
     ///地图点的大小
     float mPointSize;
     ///绘制的相机的大小

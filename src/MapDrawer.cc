@@ -48,10 +48,14 @@ MapDrawer::MapDrawer(Map* pMap, const string &strSettingPath):mpMap(pMap)
     mKeyFrameSize = fSettings["Viewer.KeyFrameSize"];
     mKeyFrameLineWidth = fSettings["Viewer.KeyFrameLineWidth"];
     mGraphLineWidth = fSettings["Viewer.GraphLineWidth"];
+    mMapPointFrameWidth = fSettings["Viewer.MapPointFrameWidth"];
     mPointSize = fSettings["Viewer.PointSize"];
     mCameraSize = fSettings["Viewer.CameraSize"];
     mCameraLineWidth = fSettings["Viewer.CameraLineWidth"];
     mnColorSetSize = fSettings["Viewer.ColorSetSize"];
+    mbShowMapPoints = true;
+    mbShowObjects = true;
+    mbShowObjFraLine = true;
     for(int i=0; i < mnColorSetSize; i++){
         mvColorSet.emplace_back(cv::Point3f(rand() % 255, rand() % 255, rand() % 255));
     }
@@ -85,22 +89,51 @@ void MapDrawer::DrawMapPoints()
         // 不包括ReferenceMapPoints（局部地图点）
         if(spRefMPs.count(vpMPs[i]))
             continue;
-        if(vpMPs[i]->mnObjectID>0){
+        int nMPsiId=vpMPs[i]->GetObjectId();
+        if(nMPsiId>0){
+            if(!mbShowObjects){
+                continue;
+            }
             glEnd();
-            glPointSize(mPointSize*5);
+            glPointSize(mPointSize*3);
             glBegin(GL_POINTS);
-            glColor3f(mvColorSet[vpMPs[i]->mnObjectID % mnColorSetSize].x/255,
-                      mvColorSet[vpMPs[i]->mnObjectID % mnColorSetSize].y/255,
-                      mvColorSet[vpMPs[i]->mnObjectID % mnColorSetSize].z/255);
+            glColor3f(mvColorSet[nMPsiId % mnColorSetSize].x/255,
+                      mvColorSet[nMPsiId % mnColorSetSize].y/255,
+                      mvColorSet[nMPsiId % mnColorSetSize].z/255);
             cv::Mat pos = vpMPs[i]->GetWorldPos();
             glVertex3f(pos.at<float>(0),pos.at<float>(1),pos.at<float>(2));
             glEnd();
+
+            if(mbShowObjFraLine){
+                glLineWidth(mMapPointFrameWidth);
+                glBegin(GL_LINES);  //绘制线条的时候,默认是按照添加顺序,每两个点之间绘制一条直线
+                const map<KeyFrame*, size_t> observations = vpMPs[i]->GetObservationsKFAndMPIdx();
+                // 遍历观测到该地图点的关键帧
+                for(map<KeyFrame*, size_t>::const_iterator mit=observations.begin(),
+                            mend=observations.end(); mit!=mend; mit++){
+                    KeyFrame* pKFi = mit->first;
+                    if(!pKFi){
+                        continue;
+                    }
+                    if(pKFi->isBad()){
+                        continue;
+                    }
+                    glColor4f(0.0f,0.0f,0.0f,0.5f);
+                    cv::Mat Ow = pKFi->GetCameraCenter();
+                    glVertex3f(Ow.at<float>(0),Ow.at<float>(1),Ow.at<float>(2));
+                    glVertex3f(pos.at<float>(0),pos.at<float>(1),pos.at<float>(2));
+                }
+                glEnd();
+            }
             glPointSize(mPointSize);
             glBegin(GL_POINTS);
             glColor3f(0.0,0.0,0.0);         //黑色
         }
-        cv::Mat pos = vpMPs[i]->GetWorldPos();
-        glVertex3f(pos.at<float>(0),pos.at<float>(1),pos.at<float>(2));
+        else if(mbShowMapPoints){
+            cv::Mat pos = vpMPs[i]->GetWorldPos();
+            glVertex3f(pos.at<float>(0),pos.at<float>(1),pos.at<float>(2));
+        }
+
     }
     glEnd();
 
@@ -114,11 +147,14 @@ void MapDrawer::DrawMapPoints()
             continue;
         if((*sit)->GetbBad())
             continue;
-        if((*sit)->mnObjectID>0){
+        if((*sit)->GetObjectId()>0){
+            if(!mbShowObjects){
+                continue;
+            }
             glEnd();
             glPointSize(mPointSize*5);
             glBegin(GL_POINTS);
-            glColor3f(1.0,0.0,0.5);
+            glColor3f(0.0,0.0,0.0);//refObjectPoint黑色
             cv::Mat pos = (*sit)->GetWorldPos();
             glVertex3f(pos.at<float>(0),pos.at<float>(1),pos.at<float>(2));
             glEnd();
@@ -126,8 +162,10 @@ void MapDrawer::DrawMapPoints()
             glBegin(GL_POINTS);
             glColor3f(1.0,0.0,0.0);
         }
-        cv::Mat pos = (*sit)->GetWorldPos();
-        glVertex3f(pos.at<float>(0),pos.at<float>(1),pos.at<float>(2));
+        else if(mbShowMapPoints) {
+            cv::Mat pos = (*sit)->GetWorldPos();
+            glVertex3f(pos.at<float>(0), pos.at<float>(1), pos.at<float>(2));//refMapPint is red
+        }
     }
     glEnd();
 }

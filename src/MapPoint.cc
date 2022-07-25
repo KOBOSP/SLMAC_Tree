@@ -61,11 +61,12 @@ MapPoint::MapPoint(const cv::Mat &Pos,  //地图点的世界坐标
     mfMinDistance(0),                       //当前地图点在某帧下,可信赖的被找到时其到关键帧光心距离的下界
     mfMaxDistance(0),                       //上界
     mnObjectID(nObjectID),
-        mfObjectRadius(fsize),
-        mpMap(pMap)                             //从属地图
+    mfObjectRadius(fsize),
+    mpMap(pMap)                             //从属地图
 {
     Pos.copyTo(mWorldPos);
-    mvObjectReplacePosAndTimes.push_back(pair<cv::Mat,int>(mWorldPos,1));
+    Pos.copyTo(mGpsPos);
+    mObjectsReplaceWeight=1;
     //平均观测方向初始化为0
     mNormalVector = cv::Mat::zeros(3,1,CV_32F);
     // MapPoints can be created from Tracking and Local Mapping. This mutex avoid conflicts with id.
@@ -78,6 +79,7 @@ MapPoint::MapPoint(const cv::Mat &Pos,  //地图点的世界坐标
 void MapPoint::SetWorldPos(const cv::Mat &Pos)
 {
     //TODO 为什么这里多了个线程锁
+    unique_lock<mutex> lock2(mGlobalMutex);
     unique_lock<mutex> lock(mMutexPos);
     Pos.copyTo(mWorldPos);
 }
@@ -87,11 +89,32 @@ cv::Mat MapPoint::GetWorldPos()
     unique_lock<mutex> lock(mMutexPos);
     return mWorldPos.clone();
 }
+void MapPoint::SetGpsPos(const cv::Mat &Pos)
+{
+    //TODO 为什么这里多了个线程锁
+    unique_lock<mutex> lock2(mGlobalMutex);
+    unique_lock<mutex> lock(mMutexPos);
+    Pos.copyTo(mGpsPos);
+}
+cv::Mat MapPoint::GetGpsPos()
+{
+    unique_lock<mutex> lock(mMutexPos);
+    return mGpsPos.clone();
+}
+
+int MapPoint::GetObjectId(){
+    unique_lock<mutex> lock(mMutexObjId);
+    return mnObjectID;
+}
+int MapPoint::SetObjectId(int nObjId){
+    unique_lock<mutex> lock(mMutexObjId);
+    mnObjectID=nObjId;
+}
 
 //世界坐标系下地图点被多个相机观测的平均观测方向
 cv::Mat MapPoint::GetNormal()
 {
-    unique_lock<mutex> lock(mMutexFeatures);
+    unique_lock<mutex> lock(mMutexPos);
     return mNormalVector.clone();
 }
 //获取地图点的参考关键帧
@@ -171,7 +194,8 @@ void MapPoint::SetBadFlag(){
     map<KeyFrame*,size_t> obs;
     {
         unique_lock<mutex> lock1(mMutexFeatures);
-        SetbBad(true);
+        unique_lock<mutex> lock2(mMutexPos);
+        mbBad=true;
         // 把mObservations转存到obs，obs和mObservations里存的是指针，赋值过程为浅拷贝
         obs = mmObservationsKFAndMPidx;
         // 把mObservations指向的内存释放，obs作为局部变量之后自动删除
@@ -198,7 +222,7 @@ MapPoint* MapPoint::GetReplaced()
  * 
  * @param[in] pMP       用该地图点来替换当前地图点
  */
-void MapPoint::Replace(MapPoint* pMP)
+void MapPoint::Replace(MapPoint* pMP, bool bUpdataWeight)
 {
     // 同一个地图点则跳过
     if(pMP->mnId==this->mnId){
@@ -218,7 +242,7 @@ void MapPoint::Replace(MapPoint* pMP)
         //清除当前地图点的原有观测
         mmObservationsKFAndMPidx.clear();
         //当前的地图点被删除了
-        SetbBad(true);
+        mbBad=true;
         //暂存当前地图点的可视次数和被找到的次数
         nvisible = mnVisible;
         nfound = mnFound;
@@ -249,7 +273,12 @@ void MapPoint::Replace(MapPoint* pMP)
     pMP->IncreaseFound(nfound);
     pMP->IncreaseVisible(nvisible);
     //描述子更新
-    pMP->ComputeDistinctiveDescriptors();
+    if(pMP->mnObjectID<0){
+        pMP->ComputeDistinctiveDescriptors();
+    }
+    if(bUpdataWeight){
+        pMP->mObjectsReplaceWeight+=this->mObjectsReplaceWeight;
+    }
     //告知地图,删掉我
     this->SetBadFlag();
 //    next line is bug, must first set bad then erase
@@ -259,15 +288,11 @@ void MapPoint::Replace(MapPoint* pMP)
 // 没有经过 CullRecentAddedMapPoints 检测的MapPoints, 认为是坏掉的点
 bool MapPoint::GetbBad()
 {
-    unique_lock<mutex> lock2(mMutexBad);
+    unique_lock<mutex> lock1(mMutexFeatures);
+    unique_lock<mutex> lock2(mMutexPos);
     return mbBad;
 }
 
-void MapPoint::SetbBad(bool val)
-{
-    unique_lock<mutex> lock2(mMutexBad);
-    mbBad = val;
-}
 
 /**
  * @brief Increase Visible
@@ -319,7 +344,7 @@ void MapPoint::ComputeDistinctiveDescriptors()
     // Step 1 获取该地图点所有有效的观测关键帧信息
     {
         unique_lock<mutex> lock1(mMutexFeatures);
-        if(GetbBad())
+        if(mbBad)
             return;
         observations=mmObservationsKFAndMPidx;
     }
@@ -437,7 +462,7 @@ void MapPoint::UpdateNormalAndDepth()
     {
         unique_lock<mutex> lock1(mMutexFeatures);
         unique_lock<mutex> lock2(mMutexPos);
-        if(GetbBad())
+        if(mbBad)
             return;
         observations=mmObservationsKFAndMPidx; // 获得观测到该地图点的所有关键帧
         pRefKF=mpRefKF;             // 观测到该点的参考关键帧（第一次创建时的关键帧）

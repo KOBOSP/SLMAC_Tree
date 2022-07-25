@@ -104,32 +104,8 @@ public:
     // This function must be called before saving the trajectory.
     //关闭系统，这将会关闭所有线程并且丢失曾经的各种数据
     void Shutdown();
+    void SaveKeyFrameAndMapPointInGps(const string &filename, bool bSaveKeyFramesGps, bool bSaveObjectsGps);
 
-    // Save camera trajectory in the TUM RGB-D dataset format.
-    // NOTE Only for stereo and RGB-D. This method does not work for monocular.
-    // Call first Shutdown()
-    // See format details at: http://vision.in.tum.de/data/datasets/rgbd-dataset
-    // 以TUM格式保存相机的运动轨迹，这个函数将会在Shutdown函数中被首先调用
-    void SaveTrajectoryTUM(const string &filename);         //指定文件名
-
-    // Save keyframe poses in the TUM RGB-D dataset format.
-    // NOTE This method works for all sensor input.
-    // Call first Shutdown()
-    // See format details at: http://vision.in.tum.de/data/datasets/rgbd-dataset
-    // 以TUM格式保存关键帧位姿。  TODO 是不是这也意味着，我可以使用g2o_viewer这样的软件去查看并且进行优化实验？
-    void SaveKeyFrameTrajectoryTUM(const string &filename);     //指定文件名
-
-    // Save camera trajectory in the KITTI dataset format.
-    // NOTE Only for stereo and RGB-D. This method does not work for monocular.
-    // Call first Shutdown()
-    // See format details at: http://www.cvlibs.net/datasets/kitti/eval_odometry.php
-    // 以KITTI格式保存相机的运行轨迹
-    void SaveTrajectoryKITTI(const string &filename);
-
-    // TODO: Save/Load functions
-    // 在这里可以实现自己的地图保存和加载函数
-    // SaveMap(const string &filename);
-    // LoadMap(const string &filename);
 
     // Information from most recent processed frame
     // You can call this right after TrackMonocular (or stereo or RGBD)

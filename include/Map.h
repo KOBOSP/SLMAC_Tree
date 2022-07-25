@@ -123,7 +123,8 @@ public:
      * @return long unsigned int  id
      */
     long unsigned int GetMaxKeyFrameID();
-
+    int GetRootIdxToSameObjectIdMap(int idx);
+    int SetRootIdxToSameObjectIdMap(int idx, int root);
 
     /** @brief 清空地图 */
     void clear();
@@ -140,6 +141,7 @@ public:
 
     int mnMaxObjectID;
 
+
 protected:
     // 存储所有的地图点
     std::set<MapPoint*> mspMapPoints; 
@@ -150,7 +152,7 @@ protected:
     ///参考地图点
     std::vector<MapPoint*> mvpReferenceMapPoints;
     std::vector<MapPoint*> mvpReferenceObjects;
-
+    std::vector<int> mvnSameObjectIdMap;
 
     ///当前地图中具有最大ID的关键帧
     long unsigned int mnMaxKeyFrameID;
@@ -158,6 +160,7 @@ protected:
 
     ///类的成员函数在对类成员变量进行操作的时候,防止冲突的互斥量
     std::mutex mMutexMap;
+    std::mutex mMutexDsu;
 };
 
 } //namespace ORB_SLAM

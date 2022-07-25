@@ -247,200 +247,51 @@ void System::Shutdown()
 }
 
 //按照TUM格式保存相机运行轨迹并保存到指定的文件中
-void System::SaveTrajectoryTUM(const string &filename)
+void System::SaveKeyFrameAndMapPointInGps(const string &filename, bool bSaveKeyFramesGps, bool bSaveObjectsGps)
 {
-    cout << endl << "Saving camera trajectory to " << filename << " ..." << endl;
-    //只有在传感器为双目或者RGBD时才可以工作
-    if(mSensor==MONOCULAR)
-    {
-        cerr << "ERROR: SaveTrajectoryTUM cannot be used for monocular." << endl;
-        return;
-    }
-
-    //从地图中获取所有的关键帧
-    vector<KeyFrame*> vpKFs = mpMap->GetAllKeyFrames();
-    //根据关键帧生成的先后顺序（id）进行排序
-    sort(vpKFs.begin(),vpKFs.end(),KeyFrame::lId);
-
-    // Transform all keyframes so that the first keyframe is at the origin.
-    // After a loop closure the first keyframe might not be at the origin.
-    // 到原点的转换，获取这个转换矩阵
-    cv::Mat Two = vpKFs[0]->GetPoseInverse();
-
-    //文件写入的准备工作
-    ofstream f;
-    f.open(filename.c_str());
-    //这个可以理解为，在输出浮点数的时候使用0.3141592654这样的方式而不是使用科学计数法
-    f << fixed;
-
-    // Frame pose is stored relative to its reference keyframe (which is optimized by BA and pose graph).
-    // We need to get first the keyframe pose and then concatenate the relative transformation.
-    // Frames not localized (tracking failure) are not saved.
-    // 之前的帧位姿都是基于其参考关键帧的，现在我们把它恢复
-
-    // For each frame we have a reference keyframe (lRit), the timestamp (lT) and a flag
-    // which is true when tracking failed (lbL).
-    //参考关键帧列表
-    list<ORB_SLAM2::KeyFrame*>::iterator lRit = mpTracker->mlpReferences.begin();
-    //所有帧对应的时间戳列表
-    list<double>::iterator lT = mpTracker->mlFrameTimes.begin();
-    //每帧的追踪状态组成的列表       
-    list<bool>::iterator lbL = mpTracker->mlbLost.begin();
-    //对于每一个mlRelativeFramePoses中的帧lit
-    for(list<cv::Mat>::iterator lit=mpTracker->mlRelativeFramePoses.begin(),
-        lend=mpTracker->mlRelativeFramePoses.end();
-        lit!=lend;
-        lit++, lRit++, lT++, lbL++)		// TODO 为什么是在这里更新参考关键帧？
-    {
-    	//如果该帧追踪失败，不管它，进行下一个
-        if(*lbL)
-            continue;
-
-       	//获取其对应的参考关键帧
-        KeyFrame* pKF = *lRit;
-
-        //变换矩阵的初始化，初始化为一个单位阵
-        cv::Mat Trw = cv::Mat::eye(4,4,CV_32F);
-
-        // If the reference keyframe was culled（剔除）, traverse（扫描？） the spanning tree to get a suitable keyframe.
-        while(pKF->isBad())
-        {
-        	//更新关键帧变换矩阵的初始值，
-            Trw = Trw*pKF->mTcp;
-            //并且更新到原关键帧的父关键帧
-            pKF = pKF->GetParent();
-        }//查看当前使用的参考关键帧是否为bad
-        // TODO 其实我也是挺好奇，为什么在这里就能够更改掉不合适的参考关键帧了呢
-
-        // TODO 这里的函数GetPose()和上面的mTcp有什么不同？
-        //最后一个Two是原点校正
-        //最终得到的是参考关键帧相对于世界坐标系的变换
-        Trw = Trw*pKF->GetPose()*Two;
-
-        //在此基础上得到相机当前帧相对于世界坐标系的变换
-        cv::Mat Tcw = (*lit)*Trw;
-        //然后分解出旋转矩阵
-        cv::Mat Rwc = Tcw.rowRange(0,3).colRange(0,3).t();
-        //以及平移向量
-        cv::Mat twc = -Rwc*Tcw.rowRange(0,3).col(3);
-
-        //用四元数表示旋转
-        vector<float> q = Converter::toQuaternion(Rwc);
-
-        //然后按照给定的格式输出到文件中
-        f << setprecision(6) << *lT << " " <<  setprecision(9) << twc.at<float>(0) << " " << twc.at<float>(1) << " " << twc.at<float>(2) << " " << q[0] << " " << q[1] << " " << q[2] << " " << q[3] << endl;
-    }////对于每一个mlRelativeFramePoses中的帧lit所进行的操作
-
-    //操作完毕，关闭文件并且输出调试信息
-    f.close();
-    cout << endl << "trajectory saved!" << endl;
-}
-
-
-//保存关键帧的轨迹
-void System::SaveKeyFrameTrajectoryTUM(const string &filename)
-{
-    cout << endl << "Saving keyframe trajectory to " << filename << " ..." << endl;
-
-    //获取关键帧vector并按照生成时间对其进行排序
-    vector<KeyFrame*> vpKFs = mpMap->GetAllKeyFrames();
-    sort(vpKFs.begin(),vpKFs.end(),KeyFrame::lId);
-
-    //本来这里需要进行原点校正，但是实际上没有做
-    // Transform all keyframes so that the first keyframe is at the origin.
-    // After a loop closure the first keyframe might not be at the origin.
-    //cv::Mat Two = vpKFs[0]->GetPoseInverse();
-
-    //文件写入的准备操作
+    cout << endl << "Saving KeyFrame And MapPoint In Gps to " << filename << " ..." << endl;
     ofstream f;
     f.open(filename.c_str());
     f << fixed;
 
-    //对于每个关键帧
-    for(size_t i=0; i<vpKFs.size(); i++)
-    {
-    	//获取该 关键帧
-        KeyFrame* pKF = vpKFs[i];
+    if(bSaveKeyFramesGps){
+        vector<KeyFrame*> vpKFs = mpMap->GetAllKeyFrames();
+        sort(vpKFs.begin(),vpKFs.end(),KeyFrame::lId);
+        for(vector<KeyFrame *>::iterator vKFit=vpKFs.begin(), lend=vpKFs.end(); vKFit != lend; vKFit++){
+            if(!(*vKFit)){
+                continue;
+            }
+            if((*vKFit)->isBad()){
+                continue;
+            }
 
-        //原本有个原点校正，这里注释掉了
-       // pKF->SetTcwPose(pKF->GetPose()*Two);
-
-        //如果这个关键帧是bad那么就跳过
-        if(pKF->isBad())
-            continue;
-
-        //抽取旋转部分和平移部分，前者使用四元数表示
-        cv::Mat R = pKF->GetRotation().t();
-        vector<float> q = Converter::toQuaternion(R);
-        cv::Mat t = pKF->GetCameraCenter();
-        //按照给定的格式输出到文件中
-        f << setprecision(6) << pKF->mTimeStamp << setprecision(7) << " " << t.at<float>(0) << " " << t.at<float>(1) << " " << t.at<float>(2)
-          << " " << q[0] << " " << q[1] << " " << q[2] << " " << q[3] << endl;
-
-    }
-
-    //关闭文件
-    f.close();
-    cout << endl << "trajectory saved!" << endl;
-}
-
-//按照KITTI数据集的格式将相机的运动轨迹保存到文件中
-void System::SaveTrajectoryKITTI(const string &filename)
-{
-    cout << endl << "Saving camera trajectory to " << filename << " ..." << endl;
-    //检查输入数据的类型
-    if(mSensor==MONOCULAR)
-    {
-        cerr << "ERROR: SaveTrajectoryKITTI cannot be used for monocular." << endl;
-        return;
-    }
-
-    //下面的操作和前面TUM数据集格式的非常相似，因此不再添加注释
-    vector<KeyFrame*> vpKFs = mpMap->GetAllKeyFrames();
-    sort(vpKFs.begin(),vpKFs.end(),KeyFrame::lId);
-
-    // Transform all keyframes so that the first keyframe is at the origin.
-    // After a loop closure the first keyframe might not be at the origin.
-    cv::Mat Two = vpKFs[0]->GetPoseInverse();
-
-    ofstream f;
-    f.open(filename.c_str());
-    f << fixed;
-
-    // Frame pose is stored relative to its reference keyframe (which is optimized by BA and pose graph).
-    // We need to get first the keyframe pose and then concatenate the relative transformation.
-    // Frames not localized (tracking failure) are not saved.
-
-    // For each frame we have a reference keyframe (lRit), the timestamp (lT) and a flag
-    // which is true when tracking failed (lbL).
-    list<ORB_SLAM2::KeyFrame*>::iterator lRit = mpTracker->mlpReferences.begin();
-    list<double>::iterator lT = mpTracker->mlFrameTimes.begin();
-    for(list<cv::Mat>::iterator lit=mpTracker->mlRelativeFramePoses.begin(), lend=mpTracker->mlRelativeFramePoses.end();lit!=lend;lit++, lRit++, lT++)
-    {
-        ORB_SLAM2::KeyFrame* pKF = *lRit;
-
-        cv::Mat Trw = cv::Mat::eye(4,4,CV_32F);
-
-        while(pKF->isBad())
-        {
-          //  cout << "bad parent" << endl;
-            Trw = Trw*pKF->mTcp;
-            pKF = pKF->GetParent();
+            cv::Mat twc = (*vKFit)->mTgpsFrame;
+            f <<setprecision(9) << twc.at<float>(0) << " " << twc.at<float>(1) << " " << twc.at<float>(2) << endl;
         }
-
-        Trw = Trw*pKF->GetPose()*Two;
-
-        cv::Mat Tcw = (*lit)*Trw;
-        cv::Mat Rwc = Tcw.rowRange(0,3).colRange(0,3).t();
-        cv::Mat twc = -Rwc*Tcw.rowRange(0,3).col(3);
-
-        f << setprecision(9) << Rwc.at<float>(0,0) << " " << Rwc.at<float>(0,1)  << " " << Rwc.at<float>(0,2) << " "  << twc.at<float>(0) << " " <<
-             Rwc.at<float>(1,0) << " " << Rwc.at<float>(1,1)  << " " << Rwc.at<float>(1,2) << " "  << twc.at<float>(1) << " " <<
-             Rwc.at<float>(2,0) << " " << Rwc.at<float>(2,1)  << " " << Rwc.at<float>(2,2) << " "  << twc.at<float>(2) << endl;
+        f<<"-1 -1 -1"<<endl;
+    }
+    if(bSaveObjectsGps){
+        vector<MapPoint*> vObjectsInGlobalMap;
+        mpMap->GetAllObjectsInMap(vObjectsInGlobalMap);
+        sort(vObjectsInGlobalMap.begin(), vObjectsInGlobalMap.end(), MapPoint::lId);
+        for(vector<MapPoint*>::iterator vMPit=vObjectsInGlobalMap.begin(), vend=vObjectsInGlobalMap.end(); vMPit != vend; vMPit++) {
+            MapPoint *pMPObj = *vMPit;
+            if (!pMPObj) {
+                continue;
+            }
+            if (pMPObj->GetbBad()) {
+                continue;
+            }
+            cv::Mat twc = pMPObj->GetGpsPos();
+            f <<setprecision(9) << twc.at<float>(0) << " " << twc.at<float>(1) << " " << twc.at<float>(2) << endl;
+        }
+        f<<"-1 -1 -1"<<endl;
     }
     f.close();
-    cout << endl << "trajectory saved!" << endl;
+    cout << "File saved!" << endl;
 }
+
+
 
 //获取追踪器状态
 int System::GetTrackingState()
