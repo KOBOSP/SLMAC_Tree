@@ -240,7 +240,7 @@ namespace ORB_SLAM2 {
          * @brief Get MapPoint Matches 获取该关键帧的MapPoints
          */
         std::vector<MapPoint *> GetAllMapPointInKF(bool NeedObjectMP = true);
-
+        std::vector<MapPoint*> GetAllObjctInKF();
         /**
          * @brief 关键帧中，大于等于minObs的MapPoints的数量
          * @details minObs就是一个阈值，大于minObs就表示该MapPoint是一个高质量的MapPoint \n

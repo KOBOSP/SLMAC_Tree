@@ -79,16 +79,13 @@ void LocalMapping::Run()
         // Tracking will see that Local Mapping is busy
         // Step 1 告诉Tracking，LocalMapping正处于繁忙状态，请不要给我发送关键帧打扰我
         // LocalMapping线程处理的关键帧都是Tracking线程发来的
-
         SetAcceptKeyFrames(false);
-
         // Check if there are keyframes in the queue
         // 等待处理的关键帧列表不为空
         if(HaveNewKeyFrameInQueue()){
             // BoW conversion and insertion in Map
             // Step 2 处理列表中的关键帧，包括计算BoW、更新观测、描述子、共视图，插入到地图等
             ProcessNewKeyFrame();
-
             // Check recent MapPoints
             // Step 3 根据地图点的观测情况剔除质量不好的地图点
             MapPointCulling();
@@ -103,7 +100,6 @@ void LocalMapping::Run()
             }
             // 终止BA的标志
             mbAbortBA = false;
-
             // 已经处理完队列中的最后的一个关键帧，并且闭环检测没有请求停止LocalMapping
             if(!HaveNewKeyFrameInQueue() && !stopRequested()){
                 // Local BA
@@ -111,6 +107,7 @@ void LocalMapping::Run()
                 if(mpMap->GetKeyFramesNumInMap() > 2){
                     // 注意这里的第二个参数是按地址传递的,当这里的 mbAbortBA 状态发生变化时，能够及时执行/停止BA
                     Optimizer::OptimizeLocalMapPoint(mpCurrentKeyFrame, &mbAbortBA, mpMap);
+                    Optimizer::OptimizeLocalObject(mpCurrentKeyFrame, &mbAbortBA, mpMap);
                 }
                 // Check redundant local Keyframes
                 // Step 7 检测并剔除当前帧相邻的关键帧中冗余的关键帧

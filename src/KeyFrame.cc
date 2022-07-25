@@ -385,6 +385,20 @@ vector<MapPoint*> KeyFrame::GetAllMapPointInKF(bool NeedObjectMP)
     return tmp;
 }
 
+vector<MapPoint*> KeyFrame::GetAllObjctInKF()
+{
+    unique_lock<mutex> lock(mMutexFeatures);
+    std::vector<MapPoint *> tmp;
+    for(int i=0;i<mvpMapPoints.size();i++){
+        if(mvpMapPoints[i]){
+            if(mvpMapPoints[i]->mnObjectID>0){
+                tmp.push_back(mvpMapPoints[i]);
+            }
+        }
+    }
+    return tmp;
+}
+
 // 获取当前关键帧的具体的某个地图点
 MapPoint* KeyFrame::GetMapPointByIndex(const size_t &idx)
 {

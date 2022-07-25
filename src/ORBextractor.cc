@@ -956,7 +956,6 @@ void ORBextractor::RunExtractORB( InputArray _image, std::vector<cv::KeyPoint>& 
     //使用四叉树的方式计算每层图像的特征点并进行分配
     ComputeKeyPointsOctTree(AllKPsInPyra);
     AllKPsInPyra[0].insert(AllKPsInPyra[0].end(), vTars.begin(), vTars.end());
-
 	// Step 4 拷贝图像描述子到新的矩阵descriptors
     Mat descriptors;
 

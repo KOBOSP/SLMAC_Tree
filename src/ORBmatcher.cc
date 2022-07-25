@@ -1159,10 +1159,8 @@ int ORBmatcher::SearchNewKFMatchPointByKFF12(KeyFrame *pKF1, KeyFrame *pKF2, cv:
                     const cv::Mat &d2 = pKF2->mDescriptors.row(idx2);
                     // Step 2.6 计算idx1与idx2在两个关键帧中对应特征点的描述子距离
                     const int dist = ComputeDescriptorDistance(d1, d2);
-                    
                     if(dist>TH_LOW || dist>bestDist)
                         continue;
-
                     // 通过特征点索引idx2在pKF2中取出对应的特征点
                     const cv::KeyPoint &kp2 = pKF2->mvKeysUn[idx2];
                     //? 为什么双目就不需要判断像素点到极点的距离的判断？
@@ -1176,7 +1174,6 @@ int ORBmatcher::SearchNewKFMatchPointByKFF12(KeyFrame *pKF1, KeyFrame *pKF2, cv:
                     if(distex*distex+distey*distey<100*pKF2->mvScaleFactors[kp2.octave]){
                         continue;
                     }
-
                     // Step 2.8 计算特征点kp2到kp1对应极线的距离是否小于阈值
                     if(CheckDistEpipolarLine(kp1,kp2,F12,pKF2)){
                         // bestIdx2，bestDist 是 kp1 对应 KF2中的最佳匹配点 index及匹配距离
@@ -1184,8 +1181,6 @@ int ORBmatcher::SearchNewKFMatchPointByKFF12(KeyFrame *pKF1, KeyFrame *pKF2, cv:
                         bestDist = dist;
                     }
                 }
-
-                
                 if(bestIdx2>=0){
                     const cv::KeyPoint &kp2 = pKF2->mvKeysUn[bestIdx2];
                     // 记录匹配结果

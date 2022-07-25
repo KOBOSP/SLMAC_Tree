@@ -127,8 +127,7 @@ cv::Mat FrameDrawer::DrawFrame()
                 mnTrackedTarget++;
             }
             //如果这个点在视觉里程计中有(应该是追踪成功了的意思吧),在局部地图中也有
-            if(vbVO[i] || vbMap[i])
-            {
+            else if(vbVO[i] || vbMap[i]){
                 //在特征点附近正方形选择四个点
                 cv::Point2f pt1,pt2;
                 pt1.x=vCurrentKeys[i].pt.x-r;
