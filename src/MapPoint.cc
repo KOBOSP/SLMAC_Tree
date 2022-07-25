@@ -38,7 +38,7 @@ mutex MapPoint::mGlobalMutex;
  */
 MapPoint::MapPoint(const cv::Mat &Pos,  //地图点的世界坐标
                    KeyFrame *pRefKF,    //生成地图点的关键帧
-                   Map* pMap, bool bObject):          //地图点所存在的地图
+                   Map* pMap, int nObjectID):          //地图点所存在的地图
     mnFirstKFid(pRefKF->mnID),              //第一次观测/生成它的关键帧 id
     mnFirstFrame(pRefKF->mnFrameId),        //创建该地图点的帧ID(因为关键帧也是帧啊)
     mnObserve(0),                                //被观测次数
@@ -57,13 +57,12 @@ MapPoint::MapPoint(const cv::Mat &Pos,  //地图点的世界坐标
     mpReplaced(static_cast<MapPoint*>(NULL)), //替换掉当前地图点的点
     mfMinDistance(0),                       //当前地图点在某帧下,可信赖的被找到时其到关键帧光心距离的下界
     mfMaxDistance(0),                       //上界
-    mbObject(bObject),
+    mnObjectID(nObjectID),
     mpMap(pMap)                             //从属地图
 {
     Pos.copyTo(mWorldPos);
     //平均观测方向初始化为0
     mNormalVector = cv::Mat::zeros(3,1,CV_32F);
-
     // MapPoints can be created from Tracking and Local Mapping. This mutex avoid conflicts with id.
     unique_lock<mutex> lock(mpMap->mMutexPointCreation);
     mnId=nNextId++;
@@ -78,11 +77,11 @@ MapPoint::MapPoint(const cv::Mat &Pos,  //地图点的世界坐标
  * @param pFrame Frame
  * @param idxF   MapPoint在Frame中的索引，即对应的特征点的编号
  */
-MapPoint::MapPoint(const cv::Mat &Pos, Map* pMap, Frame* pFrame, const int &idxF, bool bObject):
+MapPoint::MapPoint(const cv::Mat &Pos, Map* pMap, Frame* pFrame, const int &idxF, int nObjectID):
         mnFirstKFid(-1), mnFirstFrame(pFrame->mnId), mnObserve(0), mnTrackReferenceForFrame(0), mnLastFrameSeen(0),
         mnBALocalForKF(0), mnFuseCandidateForKF(0), mnLoopPointForKF(0), mnCorrectedByKF(0),
         mnCorrectedReference(0), mnBAGlobalForKF(0), mpRefKF(static_cast<KeyFrame*>(NULL)), mnVisible(1),
-        mnFound(1), mbBad(false), mpReplaced(NULL), mbObject(bObject),
+        mnFound(1), mbBad(false), mpReplaced(NULL), mnObjectID(nObjectID),
         mpMap(pMap)
 {
     Pos.copyTo(mWorldPos);
@@ -167,12 +166,10 @@ void MapPoint::AddObservation(KeyFrame* pKF, size_t idx)
 // 删除某个关键帧对当前地图点的观测
 void MapPoint::EraseObservation(KeyFrame* pKF)
 {
-    bool bBad=false;
-    {
+    bool bBad=false;{
         unique_lock<mutex> lock(mMutexFeatures);
         // 查找这个要删除的观测,根据单目和双目类型的不同从其中删除当前地图点的被观测次数
-        if(mmObservationsKFAndMPidx.count(pKF))
-        {
+        if(mmObservationsKFAndMPidx.count(pKF)){
             mmObservationsKFAndMPidx.erase(pKF);
             mnObserve--;
             // 如果该keyFrame是参考帧，该Frame被删除后重新指定RefFrame
@@ -209,8 +206,7 @@ int MapPoint::Observations()
  * @brief 告知可以观测到该MapPoint的Frame，该MapPoint已被删除
  * 
  */
-void MapPoint::SetBadFlag()
-{
+void MapPoint::SetBadFlag(){
     map<KeyFrame*,size_t> obs;
     {
         unique_lock<mutex> lock1(mMutexFeatures);
@@ -221,8 +217,7 @@ void MapPoint::SetBadFlag()
         // 把mObservations指向的内存释放，obs作为局部变量之后自动删除
         mmObservationsKFAndMPidx.clear();
     }
-    for(map<KeyFrame*,size_t>::iterator mit=obs.begin(), mend=obs.end(); mit!=mend; mit++)
-    {
+    for(map<KeyFrame*,size_t>::iterator mit=obs.begin(), mend=obs.end(); mit!=mend; mit++){
         KeyFrame* pKF = mit->first;
         // 告诉可以观测到该MapPoint的KeyFrame，该MapPoint被删了
         pKF->EraseMapPointMatch(mit->second);
@@ -248,12 +243,9 @@ void MapPoint::Replace(MapPoint* pMP)
     // 同一个地图点则跳过
     if(pMP->mnId==this->mnId)
         return;
-
     //要替换当前地图点,有两个工作:
     // 1. 将当前地图点的观测数据等其他数据都"叠加"到新的地图点上
     // 2. 将观测到当前地图点的关键帧的信息进行更新
-
-
     // 清除当前地图点的信息，这一段和SetBadFlag函数相同
     int nvisible, nfound;
     map<KeyFrame*,size_t> obs;
@@ -274,19 +266,15 @@ void MapPoint::Replace(MapPoint* pMP)
 
     // 所有能观测到原地图点的关键帧都要复制到替换的地图点上
     //- 将观测到当前地图的的关键帧的信息进行更新
-    for(map<KeyFrame*,size_t>::iterator mit=obs.begin(), mend=obs.end(); mit!=mend; mit++)
-    {
+    for(map<KeyFrame*,size_t>::iterator mit=obs.begin(), mend=obs.end(); mit!=mend; mit++){
         // Replace measurement in keyframe
         KeyFrame* pKF = mit->first;
-
-        if(!pMP->IsInKeyFrame(pKF))
-        {   
+        if(!pMP->IsInKeyFrame(pKF)){
             // 该关键帧中没有对"要替换本地图点的地图点"的观测
             pKF->ReplaceMapPointMatch(mit->second, pMP);// 让KeyFrame用pMP替换掉原来的MapPoint
             pMP->AddObservation(pKF,mit->second);// 让MapPoint替换掉对应的KeyFrame
         }
-        else
-        {
+        else{
             // 这个关键帧对当前的地图点和"要替换本地图点的地图点"都具有观测
             // 产生冲突，即pKF中有两个特征点a,b（这两个特征点的描述子是近似相同的），这两个特征点对应两个 MapPoint 为this,pMP
             // 然而在fuse的过程中pMP的观测更多，需要替换this，因此保留b与pMP的联系，去掉a与this的联系
@@ -300,7 +288,6 @@ void MapPoint::Replace(MapPoint* pMP)
     pMP->IncreaseVisible(nvisible);
     //描述子更新
     pMP->ComputeDistinctiveDescriptors();
-
     //告知地图,删掉我
     mpMap->EraseMapPoint(this);
 }
@@ -375,12 +362,10 @@ void MapPoint::ComputeDistinctiveDescriptors()
     vDescriptors.reserve(observations.size());
 
     // Step 2 遍历观测到该地图点的所有关键帧，对应的orb描述子，放到向量vDescriptors中
-    for(map<KeyFrame*,size_t>::iterator mit=observations.begin(), mend=observations.end(); mit!=mend; mit++)
-    {
+    for(map<KeyFrame*,size_t>::iterator mit=observations.begin(), mend=observations.end(); mit!=mend; mit++){
         // mit->first取观测到该地图点的关键帧
         // mit->second取该地图点在关键帧中的索引
         KeyFrame* pKF = mit->first;
-
         if(!pKF->isBad())        
             // 取对应的描述子向量                                               
             vDescriptors.push_back(pKF->mDescriptors.row(mit->second));     
@@ -398,13 +383,11 @@ void MapPoint::ComputeDistinctiveDescriptors()
     // float Distances[mnKeyPointNum][mnKeyPointNum];
 	std::vector<std::vector<float> > Distances;
 	Distances.resize(N, vector<float>(N, 0));
-	for (size_t i = 0; i<N; i++)
-    {
+	for (size_t i = 0; i<N; i++){
         // 和自己的距离当然是0
         Distances[i][i]=0;
         // 计算并记录不同描述子距离
-        for(size_t j=i+1;j<N;j++)
-        {
+        for(size_t j=i+1;j<N;j++){
             int distij = ORBmatcher::ComputeDescriptorDistance(vDescriptors[i], vDescriptors[j]);
             Distances[i][j]=distij;
             Distances[j][i]=distij;

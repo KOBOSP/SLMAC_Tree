@@ -188,7 +188,7 @@ void LocalMapping::ProcessNewKeyFrame()
     // Associate MapPoints to the new keyframe and update normal and descriptor
     // Step 3：当前处理关键帧中有效的地图点，更新normal，描述子等信息
     // TrackLocalMap中和当前帧新匹配上的地图点和当前关键帧进行关联绑定
-    const vector<MapPoint*> vpMapPointMatches = mpCurrentKeyFrame->GetMapPointMatches();
+    const vector<MapPoint*> vpMapPointMatches = mpCurrentKeyFrame->GetAllMapPointInKF();
     // 对当前处理的这个关键帧中的所有的地图点展开遍历
     for(size_t i=0; i<vpMapPointMatches.size(); i++){
         MapPoint* pMP = vpMapPointMatches[i];
@@ -233,12 +233,7 @@ void LocalMapping::MapPointCulling()
     const unsigned long int nCurrentKFid = mpCurrentKeyFrame->mnID;
 
     // Step 1：根据相机类型设置不同的观测阈值
-    int nThObs;
-    if(mbMonocular)
-        nThObs = 2;
-    else
-        nThObs = 3;
-	
+    int nThObs = 2;
 	// Step 2：遍历检查新添加的地图点
     while(lit!=mlpRecentAddedMapPoints.end()){
         MapPoint* pMP = *lit;
@@ -255,19 +250,20 @@ void LocalMapping::MapPointCulling()
             pMP->SetBadFlag();
             lit = mlpRecentAddedMapPoints.erase(lit);
         }
-        else if(((int)nCurrentKFid-(int)pMP->mnFirstKFid)>=2 && pMP->Observations()<=nThObs)
-        {
+        else if(((int)nCurrentKFid-(int)pMP->mnFirstKFid)>= 3 && pMP->Observations()<=nThObs){
             // Step 2.3：从该点建立开始，到现在已经过了不小于2个关键帧
             // 但是观测到该点的相机数却不超过阈值cnThObs，从地图中删除
             pMP->SetBadFlag();
             lit = mlpRecentAddedMapPoints.erase(lit);
         }
-        else if(((int)nCurrentKFid-(int)pMP->mnFirstKFid)>=3)
+        else if(((int)nCurrentKFid-(int)pMP->mnFirstKFid)>=3){
             // Step 2.4：从建立该点开始，已经过了3个关键帧而没有被剔除，则认为是质量高的点
             // 因此没有SetBadFlag()，仅从队列中删除
             lit = mlpRecentAddedMapPoints.erase(lit);
-        else
+        }
+        else{
             lit++;
+        }
     }
 }
 
@@ -317,7 +313,6 @@ void LocalMapping::CreateNewMapPointsByNerborKFs()
         if(HaveNewKeyFrameInQueue())
             return;
         KeyFrame* pKF2 = vpNeighKFs[i];
-
         // Check first that baseline is not too short
         // 相邻的关键帧光心在世界坐标系中的坐标
         cv::Mat Ow2 = pKF2->GetCameraCenter();
@@ -343,7 +338,7 @@ void LocalMapping::CreateNewMapPointsByNerborKFs()
         // Search matches that fullfil epipolar constraint
         // Step 5：通过词袋对两关键帧的未匹配的特征点快速匹配，用极线约束抑制离群点，生成新的匹配点对
         vector<pair<size_t,size_t> > vMatchedIndices;
-        matcher.SearchNewMatchPointByF12(mpCurrentKeyFrame, pKF2, F12, vMatchedIndices);
+        matcher.SearchNewKFMatchPointByKFF12(mpCurrentKeyFrame, pKF2, F12, vMatchedIndices);
 
         cv::Mat Rcw2 = pKF2->GetRotation();
         cv::Mat Rwc2 = Rcw2.t();
@@ -372,7 +367,9 @@ void LocalMapping::CreateNewMapPointsByNerborKFs()
             const cv::KeyPoint &kp1 = mpCurrentKeyFrame->mvKeysUn[idx1];
             // 当前匹配在邻接关键帧中的特征点
             const cv::KeyPoint &kp2 = pKF2->mvKeysUn[idx2];
-
+            if(kp1.class_id!=kp2.class_id){
+                continue;
+            }
 
             // Check parallax between rays
             // Step 6.2：利用匹配点反投影得到视差角
@@ -477,27 +474,24 @@ void LocalMapping::CreateNewMapPointsByNerborKFs()
 
             // Triangulation is succesfull
             // Step 6.8：三角化生成3D点成功，构造成MapPoint
-            MapPoint* pMP = new MapPoint(x3D,mpCurrentKeyFrame,mpMap);
+            MapPoint* pMP = new MapPoint(x3D,mpCurrentKeyFrame,mpMap,kp1.class_id);
 
             // Step 6.9：为该MapPoint添加属性：
             // a.观测到该MapPoint的关键帧
             pMP->AddObservation(mpCurrentKeyFrame,idx1);            
             pMP->AddObservation(pKF2,idx2);
-
             mpCurrentKeyFrame->AddMapPoint(pMP,idx1);
             pKF2->AddMapPoint(pMP,idx2);
-
             // b.该MapPoint的描述子
             pMP->ComputeDistinctiveDescriptors();
-
             // c.该MapPoint的平均观测方向和深度范围
             pMP->UpdateNormalAndDepth();
-
             mpMap->AddMapPoint(pMP);
-
             // Step 6.10：将新产生的点放入检测队列
             // 这些MapPoints都会经过MapPointCulling函数的检验
-            mlpRecentAddedMapPoints.push_back(pMP);
+            if(pMP->mnObjectID<0){
+                mlpRecentAddedMapPoints.push_back(pMP);
+            }
         }
     }
 }
@@ -556,7 +550,7 @@ void LocalMapping::FuseMapPointsInNeighbors()
     ORBmatcher matcher;
 
     // Step 3：将当前帧的地图点分别投影到两级相邻关键帧，寻找匹配点对应的地图点进行融合，称为正向投影融合
-    vector<MapPoint*> vpMapPointMatches = mpCurrentKeyFrame->GetMapPointMatches();
+    vector<MapPoint*> vpMapPointMatches = mpCurrentKeyFrame->GetAllMapPointInKF();
     for(vector<KeyFrame*>::iterator vit=vpTargetKFs.begin(), vend=vpTargetKFs.end(); vit!=vend; vit++){
         KeyFrame* pKFi = *vit;
 
@@ -564,7 +558,7 @@ void LocalMapping::FuseMapPointsInNeighbors()
         // 1.如果地图点能匹配关键帧的特征点，并且该点有对应的地图点，那么选择观测数目多的替换两个地图点
         // 2.如果地图点能匹配关键帧的特征点，并且该点没有对应的地图点，那么为该点添加该投影地图点
         // 注意这个时候对地图点融合的操作是立即生效的
-        matcher.FuseMapPointToKeyFrame(pKFi, vpMapPointMatches);
+        matcher.FuseRedundantMapPointInLocalMap(pKFi, vpMapPointMatches);
     }
 
     // Search matches by projection from target KFs in current KF
@@ -574,22 +568,17 @@ void LocalMapping::FuseMapPointsInNeighbors()
     vpFuseCandidates.reserve(vpTargetKFs.size()*vpMapPointMatches.size());
     
     //  Step 4.1：遍历每一个一级邻接和二级邻接关键帧，收集他们的地图点存储到 vpFuseCandidates
-    for(vector<KeyFrame*>::iterator vitKF=vpTargetKFs.begin(), vendKF=vpTargetKFs.end(); vitKF!=vendKF; vitKF++)
-    {
+    for(vector<KeyFrame*>::iterator vitKF=vpTargetKFs.begin(), vendKF=vpTargetKFs.end(); vitKF!=vendKF; vitKF++){
         KeyFrame* pKFi = *vitKF;
-        vector<MapPoint*> vpMapPointsKFi = pKFi->GetMapPointMatches();
-
+        vector<MapPoint*> vpMapPointsKFi = pKFi->GetAllMapPointInKF();
         // 遍历当前一级邻接和二级邻接关键帧中所有的MapPoints,找出需要进行融合的并且加入到集合中
-        for(vector<MapPoint*>::iterator vitMP=vpMapPointsKFi.begin(), vendMP=vpMapPointsKFi.end(); vitMP!=vendMP; vitMP++)
-        {
+        for(vector<MapPoint*>::iterator vitMP=vpMapPointsKFi.begin(), vendMP=vpMapPointsKFi.end(); vitMP!=vendMP; vitMP++){
             MapPoint* pMP = *vitMP;
             if(!pMP)
                 continue;
-            
             // 如果地图点是坏点，或者已经加进集合vpFuseCandidates，跳过
             if(pMP->isBad() || pMP->mnFuseCandidateForKF == mpCurrentKeyFrame->mnID)
                 continue;
-
             // 加入集合，并标记已经加入
             pMP->mnFuseCandidateForKF = mpCurrentKeyFrame->mnID;
             vpFuseCandidates.push_back(pMP);
@@ -597,11 +586,11 @@ void LocalMapping::FuseMapPointsInNeighbors()
     }
     // Step 4.2：进行地图点投影融合,和正向融合操作是完全相同的
     // 不同的是正向操作是"每个关键帧和当前关键帧的地图点进行融合",而这里的是"当前关键帧和所有邻接关键帧的地图点进行融合"
-    matcher.FuseMapPointToKeyFrame(mpCurrentKeyFrame, vpFuseCandidates);
+    matcher.FuseRedundantMapPointInLocalMap(mpCurrentKeyFrame, vpFuseCandidates);
 
     // UpdateImgKPMPState points
     // Step 5：更新当前帧地图点的描述子、深度、平均观测方向等属性
-    vpMapPointMatches = mpCurrentKeyFrame->GetMapPointMatches();
+    vpMapPointMatches = mpCurrentKeyFrame->GetAllMapPointInKF();
     for(size_t i=0, iend=vpMapPointMatches.size(); i<iend; i++){
         MapPoint* pMP=vpMapPointMatches[i];
         if(pMP){
@@ -766,7 +755,7 @@ void LocalMapping::KeyFrameCulling()
         if(pKF->mnID == 0)
             continue;
         // Step 2：提取每个共视关键帧的地图点
-        const vector<MapPoint*> vpMapPoints = pKF->GetMapPointMatches();
+        const vector<MapPoint*> vpMapPoints = pKF->GetAllMapPointInKF();
 
         // 观测次数阈值，默认为3
         const int thObs=3;

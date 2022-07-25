@@ -370,14 +370,23 @@ int KeyFrame::GetNumMapPointsBigObs(const int &minObs)
 }
 
 // 获取当前关键帧的具体的地图点
-vector<MapPoint*> KeyFrame::GetMapPointMatches()
+vector<MapPoint*> KeyFrame::GetAllMapPointInKF(bool NeedObjectMP)
 {
     unique_lock<mutex> lock(mMutexFeatures);
-    return mvpMapPoints;
+    std::vector<MapPoint *> tmp;
+    for(int i=0;i<mvpMapPoints.size();i++){
+        if(mvpMapPoints[i]){
+            if(mvpMapPoints[i]->mnObjectID>0 && !NeedObjectMP){
+                continue;
+            }
+        }
+        tmp.push_back(mvpMapPoints[i]);
+    }
+    return tmp;
 }
 
 // 获取当前关键帧的具体的某个地图点
-MapPoint* KeyFrame::GetMapPoint(const size_t &idx)
+MapPoint* KeyFrame::GetMapPointByIndex(const size_t &idx)
 {
     unique_lock<mutex> lock(mMutexFeatures);
     return mvpMapPoints[idx];
@@ -601,12 +610,10 @@ void KeyFrame::SetBadFlag()
     // Step 1 首先处理一下删除不了的特殊情况
     {
         unique_lock<mutex> lock(mMutexConnections);
-
         // 第0关键帧不允许被删除
         if(mnID == 0)
             return;
-        else if(mbNotEraseInLoop)
-        {
+        else if(mbNotEraseInLoop){
             // mbNotErase表示不应该删除，于是把mbToBeErased置为true，假装已经删除，其实没有删除
             mbToBeErased = true;
             return;
@@ -618,9 +625,12 @@ void KeyFrame::SetBadFlag()
         mit->first->EraseConnection(this); // 让其它的关键帧删除与自己的联系
 
     // Step 3 遍历每一个当前关键帧的地图点，删除每一个地图点和当前关键帧的联系
-    for(size_t i=0; i<mvpMapPoints.size(); i++)
-        if(mvpMapPoints[i])
-            mvpMapPoints[i]->EraseObservation(this); 
+    for(size_t i=0; i<mvpMapPoints.size(); i++){
+        if(mvpMapPoints[i]){
+            mvpMapPoints[i]->EraseObservation(this);
+        }
+    }
+
 
     {
         unique_lock<mutex> lock(mMutexConnections);
@@ -739,7 +749,7 @@ void KeyFrame::EraseConnection(KeyFrame* pKF)
 }
 
 // 获取某个特征点的邻域中的特征点id,其实这个和 Frame.cc 中的那个函数基本上都是一致的; r为边长（半径）
-vector<size_t> KeyFrame::GetFeaturesInArea(const float &x, const float &y, const float &r) const
+vector<size_t> KeyFrame::GetKeyPointsByArea(const float &x, const float &y, const float &r) const
 {
     vector<size_t> vIndices;
     vIndices.reserve(mnKeyPointNum);
@@ -779,6 +789,18 @@ vector<size_t> KeyFrame::GetFeaturesInArea(const float &x, const float &y, const
         }
     }
 
+    return vIndices;
+}
+
+vector<size_t> KeyFrame::GetKeyPointsByObjectID(int ClassID) const
+{
+    vector<size_t> vIndices;
+    vIndices.reserve(10);
+    for(int i=0;i<mvKeysUn.size();i++){
+        if(mvKeysUn[i].class_id==ClassID){
+            vIndices.push_back(i);
+        }
+    }
     return vIndices;
 }
 

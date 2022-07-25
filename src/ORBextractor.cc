@@ -577,6 +577,7 @@ static void ComputeOrientationInAllKP(const Mat& image, vector<KeyPoint>& keypoi
     for (vector<KeyPoint>::iterator keypoint = keypoints.begin(),
          keypointEnd = keypoints.end(); keypoint != keypointEnd; ++keypoint){
 		// 调用IC_Angle 函数计算这个特征点的方向
+		keypoint->class_id = -1;
         keypoint->angle = ComputeOrientationPerKP(image,            //特征点所在的图层的图像
                                                   keypoint->pt,    //特征点在这张图像中的坐标
                                                   umax);			//每个特征点所在图像区块的每行的边界 u_max 组成的vector
@@ -937,7 +938,7 @@ static void ComputeDescriptorInAllKPs(const Mat& image, vector<KeyPoint>& keypoi
  * @param[in & out] _keypoints                存储特征点关键点的向量
  * @param[in & out] _descriptors              存储特征点描述子的矩阵
  */
-void ORBextractor::RunExtractORB( InputArray _image, vector<KeyPoint>& _keypoints, OutputArray _descriptors)
+void ORBextractor::RunExtractORB( InputArray _image, std::vector<cv::KeyPoint>& vTars, vector<KeyPoint>& _keypoints, OutputArray _descriptors)
 { 
 	// Step 1 检查图像有效性。如果图像为空，那么就直接返回
     if(_image.empty())
@@ -954,6 +955,7 @@ void ORBextractor::RunExtractORB( InputArray _image, vector<KeyPoint>& _keypoint
     vector < vector<KeyPoint> > AllKPsInPyra;
     //使用四叉树的方式计算每层图像的特征点并进行分配
     ComputeKeyPointsOctTree(AllKPsInPyra);
+    AllKPsInPyra[0].insert(AllKPsInPyra[0].end(), vTars.begin(), vTars.end());
 
 	// Step 4 拷贝图像描述子到新的矩阵descriptors
     Mat descriptors;

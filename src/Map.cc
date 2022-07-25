@@ -116,10 +116,17 @@ vector<KeyFrame*> Map::GetAllKeyFrames()
 }
 
 //获取地图中的所有地图点
-vector<MapPoint*> Map::GetAllMapPoints()
+vector<MapPoint*> Map::GetAllMapPoints(bool NeedObjectMP)
 {
     unique_lock<mutex> lock(mMutexMap);
-    return vector<MapPoint*>(mspMapPoints.begin(),mspMapPoints.end());
+    vector<MapPoint*> tmp;
+    for(set<MapPoint*>::iterator ipMP=mspMapPoints.begin();ipMP!=mspMapPoints.end();ipMP++){
+        if((*ipMP)->mnObjectID>0 && !NeedObjectMP){
+            continue;
+        }
+        tmp.push_back((*ipMP));
+    }
+    return tmp;
 }
 
 //获取地图点数目

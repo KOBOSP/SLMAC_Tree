@@ -102,7 +102,7 @@ protected:
     ///当前是否是只有追踪线程在工作;或者说,当前是处于定位模式还是处于SLAM模式
     bool mbOnlyTracking;
     ///当前帧中追踪到的特征点计数
-    int mnTrackedMap, mnTrackedVO;
+    int mnTrackedTarget, mnTrackedMap, mnTrackedVO;
     ///参考帧中的特征点
     vector<cv::KeyPoint> mvIniKeys;
     ///当前帧特征点和参考帧特征点的匹配关系

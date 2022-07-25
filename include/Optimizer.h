@@ -110,7 +110,6 @@ public:
  * @note 由局部建图线程调用,对局部地图进行优化的函数
  */
     void static OptimizeLocalMapPoint(KeyFrame* pKF, bool *pbStopFlag, Map *pMap);
-
     /**
      * @brief Pose Only Optimization
      * 

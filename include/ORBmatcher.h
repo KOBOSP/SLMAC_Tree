@@ -99,7 +99,7 @@ public:
      * @param[in] bMono                 是否为单目
      * @return int                      成功匹配的数量
      */
-    int SearchMatchPointByProjectLastFrame(Frame &CurrentFrame, const Frame &LastFrame, const float th, const bool bMono);
+    int SearchFMatchPointByProjectLastFrame(Frame &CurrentFrame, const Frame &LastFrame, const float th, const bool bMono);
 
     // Project MapPoints seen in KeyFrame into the Frame and search matches.
     // Used in relocalisation (Tracking)
@@ -113,7 +113,7 @@ public:
      * @param[in] ORBdist           //描述子最小距离阈值
      * @return int                  //匹配到的点的数目
      */
-    int SearchMatchPointByProjectKeyFrame(Frame &CurrentFrame, KeyFrame* pKF, const std::set<MapPoint*> &sAlreadyFound, const float th, const int ORBdist);
+    int SearchFMatchPointByProjectKeyFrame(Frame &CurrentFrame, KeyFrame* pKF, const std::set<MapPoint*> &sAlreadyFound, const float th, const int ORBdist);
 
     // Project MapPoints using a Similarity Transformation and search matches.
     // Used in loop detection (Loop Closing)
@@ -127,7 +127,7 @@ public:
      * @param[in] th                搜索窗口的阈值
      * @return int                  匹配的特征点数目
      */
-    int SearchKFMatchPointByProjectMapPoint(KeyFrame* pKF, cv::Mat Scw, const std::vector<MapPoint*> &vpPoints, std::vector<MapPoint*> &vpMatched, int th);
+    int SearchKFMatchPointByProjectMapPoint(KeyFrame* pKF, cv::Mat Scw, const std::vector<MapPoint*> &vpPoints, std::vector<MapPoint*> &vpMatched, int th, bool NeedObjectMP);
 
     // Search matches between MapPoints in a KeyFrame and ORB in a Frame.
     // Brute force constrained to ORB that belong to the same vocabulary node (at a certain level)
@@ -145,8 +145,8 @@ public:
     * @param  vpMapPointMatches F中MapPoints对应的匹配，NULL表示未匹配
     * @return                   成功匹配的数量
     */
-    int SearchFMatchPointByBoW(KeyFrame *pKF, Frame &F, std::vector<MapPoint*> &vpMapPointMatches);
-    int SearchKFMatchPointByBoW(KeyFrame *pKF1, KeyFrame* pKF2, std::vector<MapPoint*> &vpMatches12);
+    int SearchFMatchPointByKFBoW(KeyFrame *pKF, Frame &F, std::vector<MapPoint*> &vpMapPointMatches);
+    int SearchKFMatchPointByKFBoW(KeyFrame *pKF1, KeyFrame* pKF2, std::vector<MapPoint*> &vpMatches12, bool NeedObjectMP);
 
     // Matching for the Map Initialization (only used in the monocular case)
     /**
@@ -178,8 +178,9 @@ public:
      * @param bOnlyStereo   在双目和rgbd情况下，是否要求特征点在右图存在匹配
      * @return              成功匹配的数量
      */
-    int SearchNewMatchPointByF12(KeyFrame *pKF1, KeyFrame* pKF2, cv::Mat F12,
-                                 std::vector<pair<size_t, size_t> > &vMatchedPairs);
+    int SearchKFMatchPointByKFTarget(KeyFrame *pKF1, KeyFrame *pKF2, vector<pair<size_t, size_t> > &vMatchedPairs);
+    int SearchNewKFMatchPointByKFF12(KeyFrame *pKF1, KeyFrame* pKF2, cv::Mat F12,
+                                     std::vector<pair<size_t, size_t> > &vMatchedPairs);
 
     // Search matches between MapPoints seen in KF1 and KF2 transforming by a Sim3 [s12*R12|t12]
     // NOTE In the stereo and RGB-D case, s12=1
@@ -195,7 +196,7 @@ public:
      * @param[in] th                搜索窗口阈值
      * @return int                  匹配到的点的个数
      */
-    int SearchNewMatchPointBySim3(KeyFrame* pKF1, KeyFrame* pKF2, std::vector<MapPoint *> &vpMatches12, const float &s12, const cv::Mat &R12, const cv::Mat &t12, const float th);
+    int SearchNewKFMatchPointByKFSim3(KeyFrame* pKF1, KeyFrame* pKF2, std::vector<MapPoint *> &vpMatches12, const float &s12, const cv::Mat &R12, const cv::Mat &t12, const float th, bool NeedObjectMP);
 
     // Project MapPoints into KeyFrame and search for duplicated MapPoints.
     /**
@@ -205,7 +206,7 @@ public:
      * @param[in] th            搜索窗口的阈值
      * @return int 
      */
-    int FuseMapPointToKeyFrame(KeyFrame* pKF, const vector<MapPoint *> &vpMapPoints, const float th=3.0);
+    int FuseRedundantMapPointInLocalMap(KeyFrame* pKF, const vector<MapPoint *> &vpMapPoints, const float th=3.0);
 
     // Project MapPoints into KeyFrame using a given Sim3 and search for duplicated MapPoints.
     /**
@@ -218,7 +219,7 @@ public:
      * @param[out] vpReplacePoint   需要替换掉的地图点,键值对
      * @return int                  融合的地图点个数
      */
-    int SearchAndFuseMPsInReplaceMap(KeyFrame* pKF, cv::Mat Scw, const std::vector<MapPoint*> &vpPoints, float th, vector<MapPoint *> &vpReplacePoint);
+    int SearchAndFuseMPsInLoopClose(KeyFrame* pKF, cv::Mat Scw, const std::vector<MapPoint*> &vpPoints, float th, vector<MapPoint *> &vpReplacePoint);
 
 public:
 

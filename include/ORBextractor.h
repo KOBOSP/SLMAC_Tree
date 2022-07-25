@@ -108,7 +108,7 @@ public:
      * @param[out] keypoints    保存提取出来的特征点的向量
      * @param[out] descriptors  输出用的保存特征点描述子的cv::Mat
      */
-    void RunExtractORB(cv::InputArray image, std::vector<cv::KeyPoint>& keypoints,cv::OutputArray descriptors);
+    void RunExtractORB(cv::InputArray image, std::vector<cv::KeyPoint>& vTars, std::vector<cv::KeyPoint>& keypoints,cv::OutputArray descriptors);
 
 	//下面的这些内联函数都是用来直接获取类的成员变量的
 	

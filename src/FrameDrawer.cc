@@ -56,7 +56,6 @@ cv::Mat FrameDrawer::DrawFrame()
     vector<cv::KeyPoint> vIniKeys; // Initialization: KeyPoints in reference frame
     vector<int> vMatches; // Initialization: correspondeces with reference keypoints
     vector<cv::KeyPoint> vCurrentKeys; // KeyPoints in current frame
-    vector<cv::KeyPoint> vCurrentTars;
     vector<bool> vbVO, vbMap; // Tracked MapPoints in current frame
     int state; // Tracking state
     bool mMotionMethodTrackOK;
@@ -111,6 +110,7 @@ cv::Mat FrameDrawer::DrawFrame()
     else if(state==Tracking::OK) //TRACKING
     {
         //当前帧追踪到的特征点计数
+        mnTrackedTarget=0;
         mnTrackedMap=0;
         mnTrackedVO=0;
 
@@ -122,6 +122,10 @@ cv::Mat FrameDrawer::DrawFrame()
             PointColor=cv::Scalar(0,0,255);
         }
         for(int i=0;i<n;i++){
+            if(vCurrentKeys[i].class_id>0){
+                cv::circle(im,vCurrentKeys[i].pt,10,cv::Scalar(vCurrentKeys[i].size,vCurrentKeys[i].angle,vCurrentKeys[i].response),5);
+                mnTrackedTarget++;
+            }
             //如果这个点在视觉里程计中有(应该是追踪成功了的意思吧),在局部地图中也有
             if(vbVO[i] || vbMap[i])
             {
@@ -149,9 +153,6 @@ cv::Mat FrameDrawer::DrawFrame()
             }
         }//遍历所有的特征点
     }
-    for(int i=0;i<vCurrentTars.size();i++){
-        cv::circle(im,vCurrentTars[i].pt,10,cv::Scalar(vCurrentTars[i].size,vCurrentTars[i].angle,vCurrentTars[i].response),5);
-    }
     //然后写入状态栏的信息
     cv::Mat imWithInfo;
     DrawTextInfo(im,state, imWithInfo);
@@ -177,7 +178,7 @@ void FrameDrawer::DrawTextInfo(cv::Mat &im, int nState, cv::Mat &imText)
         int nKFs = mpMap->GetKeyFramesNumInMap();
         int nMPs = mpMap->GetMapPointsNumInMap();
         s << "fps: "<< int(1/(mdCurrentTimeStamp-mdLastTimeStamp)) <<" KFs: " << nKFs << ", MPs: " << nMPs
-        << ", Map mat: " << mnTrackedMap << ", VO mat: " << mnTrackedVO;
+        << ", Map mat: " << mnTrackedMap << ", VO mat: " << mnTrackedVO << ", Target: " << mnTrackedTarget;
     }
     else if(nState==Tracking::LOST){
         s << " TRACK LOST. TRYING TO RELOCALIZE ";

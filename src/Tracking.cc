@@ -169,19 +169,6 @@ Tracking::Tracking(
     mnLossMMOrRKFVOThreshold = fSettings["Track.LossMMOrRKFVOThreshold"];
     mnGoodLMVOThreshold = fSettings["Track.GoodLMVOThreshold"];
     mnLossLMVOThreshold = fSettings["Track.LossLMVOThreshold"];
-
-
-    // tracking过程都会用到mpORBextractorLeft作为特征点提取器
-    mpORBextractorLeft = new ORBextractor(
-        nFeatures,      //参数的含义还是看上面的注释吧
-        fScaleFactor,
-        nLevels,
-        fIniThFAST,
-        fMinThFAST);
-
-    // 在单目初始化的时候，会用mpIniORBextractor来作为特征点提取器
-    mpORBextractorInit = new ORBextractor(2 * nFeatures, fScaleFactor, nLevels, fIniThFAST, fMinThFAST);
-
     cout << endl  << "ORB Extractor Parameters: " << endl;
     cout << "- Number of Features: " << nFeatures << endl;
     cout << "- Scale Levels: " << nLevels << endl;
@@ -193,11 +180,21 @@ Tracking::Tracking(
     cout << "- Track.GoodLMVOThreshold: " << mnGoodLMVOThreshold << endl;
     cout << "- Track.LossLMVOThreshold: " << mnLossLMVOThreshold << endl;
 
+    // tracking过程都会用到mpORBextractorLeft作为特征点提取器
+    mpORBextractorLeft = new ORBextractor(
+            nFeatures,      //参数的含义还是看上面的注释吧
+            fScaleFactor,
+            nLevels,
+            fIniThFAST,
+            fMinThFAST);
+
+    // 在单目初始化的时候，会用mpIniORBextractor来作为特征点提取器
+    mpORBextractorInit = new ORBextractor(2 * nFeatures, fScaleFactor, nLevels, fIniThFAST, fMinThFAST);
+
     ios::sync_with_stdio(false);
     freopen(strFrameTargetFile.c_str(),"r",stdin);
     int tmpFrameID, tmpTargetID, tmpTargetX, tmpTargetY, tmpTargetL, tmpTargetH;
     mvTarsSet.resize(15000);
-
     int ColorSetSize = fSettings["Viewer.ColorSetSize"];
     vector<cv::Point3f> ColorSet;
     for(int i=0;i<ColorSetSize;i++){
@@ -208,7 +205,8 @@ Tracking::Tracking(
                                                      ColorSet[tmpTargetID%ColorSetSize].x,
                                                      ColorSet[tmpTargetID%ColorSetSize].y,
                                                      ColorSet[tmpTargetID%ColorSetSize].z,
-                                                     0, tmpTargetID));
+                                                     0,
+                                                     tmpTargetID));
     }
     fclose(stdin);
     cout << "- Viewer.ColorSetSize: " << ColorSetSize << endl;
@@ -512,10 +510,8 @@ void Tracking::Track(){
                 //否则速度为空
                 mVelocity = cv::Mat();
             }
-
             //更新显示中的位姿
             mpMapDrawer->SetCurrentCameraPose(mCurrentFrame.mTcw);
-
             // Clean VO matches
             // Step 6：清除观测不到的地图点   
             for(int i=0; i<mCurrentFrame.mnKeyPointNum; i++){
@@ -735,10 +731,7 @@ void Tracking::CreateInitialMapMonocular()
         cv::Mat worldPos(mvIniP3D[i]);
 
         // Step 3.1 用3D点构造MapPoint
-        MapPoint* pMP = new MapPoint(
-            worldPos,
-            pKFcur, 
-            mpMap);
+        MapPoint* pMP = new MapPoint(worldPos, pKFcur, mpMap);
 
         // Step 3.2 为该MapPoint添加属性：
         // a.观测到该MapPoint的关键帧
@@ -804,7 +797,7 @@ void Tracking::CreateInitialMapMonocular()
     // Scale points
     // Step 7 把3D点的尺度也归一化到1
     // 为什么是pKFini? 是不是就算是使用 pKFcur 得到的结果也是相同的? 答：是的，因为是同样的三维点
-    vector<MapPoint*> vpAllMapPoints = pKFini->GetMapPointMatches();
+    vector<MapPoint*> vpAllMapPoints = pKFini->GetAllMapPointInKF();
     for(size_t iMP=0; iMP<vpAllMapPoints.size(); iMP++){
         if(vpAllMapPoints[iMP]){
             MapPoint* pMP = vpAllMapPoints[iMP];
@@ -885,7 +878,7 @@ bool Tracking::TrackWithReferenceKeyFrame()
     vector<MapPoint*> vpMapPointMatches;
 
     // Step 2：通过词袋BoW加速当前帧与参考帧之间的特征点匹配
-    int nmatches = matcher.SearchFMatchPointByBoW(
+    int nmatches = matcher.SearchFMatchPointByKFBoW(
             mpReferenceKF,          //参考关键帧
             mCurrentFrame,          //当前帧
             vpMapPointMatches);     //存储匹配关系
@@ -981,15 +974,15 @@ bool Tracking::TrackWithMotionModel()
         th=14;//双目
 
     // Step 3：用上一帧地图点进行投影匹配，如果匹配点不够，则扩大搜索半径再来一次
-    int nmatches = matcher.SearchMatchPointByProjectLastFrame(mCurrentFrame, mLastFrame, th,
-                                                              mSensor == System::MONOCULAR);
+    int nmatches = matcher.SearchFMatchPointByProjectLastFrame(mCurrentFrame, mLastFrame, th,
+                                                               mSensor == System::MONOCULAR);
 
     // If few matches, uses a wider window search
     // 如果匹配点太少，则扩大搜索半径再来一次
     if(nmatches<mnGoodMMOrRKFVOThreshold){
         fill(mCurrentFrame.mvpMapPoints.begin(),mCurrentFrame.mvpMapPoints.end(),static_cast<MapPoint*>(NULL));
-        nmatches = matcher.SearchMatchPointByProjectLastFrame(mCurrentFrame, mLastFrame, 2 * th,
-                                                              mSensor == System::MONOCULAR); // 2*th
+        nmatches = matcher.SearchFMatchPointByProjectLastFrame(mCurrentFrame, mLastFrame, 2 * th,
+                                                               mSensor == System::MONOCULAR); // 2*th
     }
 
     // 如果还是不能够获得足够的匹配点,那么就认为跟踪失败
@@ -1085,7 +1078,6 @@ bool Tracking::TrackWithLocalMap()
                 }
             }
             // 如果这个地图点是外点,并且当前相机输入还是双目的时候,就删除这个点
-            // ?单目就不管吗
             else {
                 mCurrentFrame.mvpMapPoints[i] = static_cast<MapPoint*>(NULL);
             }
@@ -1311,7 +1303,7 @@ void Tracking::UpdateLocalMapPoints()
     for(vector<KeyFrame*>::const_iterator itKF=mvpLocalKeyFrames.begin(), itEndKF=mvpLocalKeyFrames.end(); itKF!=itEndKF; itKF++)
     {
         KeyFrame* pKF = *itKF;
-        const vector<MapPoint*> vpMPs = pKF->GetMapPointMatches();
+        const vector<MapPoint*> vpMPs = pKF->GetAllMapPointInKF();
 
         // step 2：将局部关键帧的地图点添加到mvpLocalMapPoints
         for(vector<MapPoint*>::const_iterator itMP=vpMPs.begin(), itEndMP=vpMPs.end(); itMP!=itEndMP; itMP++)
@@ -1537,7 +1529,7 @@ bool Tracking::Relocalization()
             vbDiscarded[i] = true;
         else{
             // 当前帧和候选关键帧用BoW进行快速匹配，匹配结果记录在vvpMapPointMatches，nmatches表示匹配的数目
-            int nmatches = matcher.SearchFMatchPointByBoW(pKF, mCurrentFrame, vvpMapPointMatches[i]);
+            int nmatches = matcher.SearchFMatchPointByKFBoW(pKF, mCurrentFrame, vvpMapPointMatches[i]);
             // 如果和当前帧的匹配数小于15,那么只能放弃这个关键帧
             if(nmatches<15){
                 vbDiscarded[i] = true;
@@ -1632,7 +1624,7 @@ bool Tracking::Relocalization()
                 if(nGood<50)
                 {
                     // 通过投影的方式将关键帧中未匹配的地图点投影到当前帧中, 生成新的匹配
-                    int nadditional = matcher2.SearchMatchPointByProjectKeyFrame(
+                    int nadditional = matcher2.SearchFMatchPointByProjectKeyFrame(
                             mCurrentFrame,          //当前帧
                             vpCandidateKFs[i],      //关键帧
                             sFound,                 //已经找到的地图点集合，不会用于PNP
@@ -1657,7 +1649,7 @@ bool Tracking::Relocalization()
                                     sFound.insert(mCurrentFrame.mvpMapPoints[ip]);
                                 }
                             }
-                            nadditional = matcher2.SearchMatchPointByProjectKeyFrame(
+                            nadditional = matcher2.SearchFMatchPointByProjectKeyFrame(
                                     mCurrentFrame,          //当前帧
                                     vpCandidateKFs[i],      //候选的关键帧
                                     sFound,                 //已经找到的地图点，不会用于PNP

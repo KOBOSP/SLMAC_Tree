@@ -62,7 +62,7 @@ public:
      * @param[in] pRefKF    KeyFrame
      * @param[in] pMap      Map  
      */
-    MapPoint(const cv::Mat &Pos, KeyFrame* pRefKF, Map* pMap, bool bObject=false);
+    MapPoint(const cv::Mat &Pos, KeyFrame* pRefKF, Map* pMap, int nObjectID=-1);
     /**
      * @brief 给定坐标与frame构造MapPoint
      * @detials 被双目：UpdateLastFrame()调用
@@ -71,7 +71,7 @@ public:
      * @param[in] pFrame    Frame
      * @param[in] idxF      MapPoint在Frame中的索引，即对应的特征点的编号
      */
-    MapPoint(const cv::Mat &Pos,  Map* pMap, Frame* pFrame, const int &idxF, bool bObject=false);
+    MapPoint(const cv::Mat &Pos,  Map* pMap, Frame* pFrame, const int &idxF, int nObjectID=-1);
 
     /**
      * @brief 设置世界坐标系下地图点的位姿 
@@ -184,14 +184,6 @@ public:
     void IncreaseFound(int n=1);
     //? 这个比例是?
     float GetFoundRatio();
-    /**
-     * @brief 获取被找到的次数
-     * 
-     * @return int 被找到的次数
-     */
-    inline int GetFound(){
-        return mnFound;
-    }
 
     /**
      * @brief 计算具有代表的描述子
@@ -234,7 +226,7 @@ public:
 
     // 被观测到的相机数目，单目+1，双目或RGB-D则+2
     int mnObserve;
-    bool mbObject;
+    int mnObjectID;
 
     // Variables used by the tracking
     float mTrackProjX;             ///< 当前地图点投影到某帧上后的坐标

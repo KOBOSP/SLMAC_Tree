@@ -49,7 +49,7 @@ Track.GoodLMVOThreshold: 40
 Track.LossLMVOThreshold: 20
 LoopClose.CovisibilityConsistencyTh: 3
 LoopClose.SingleMatchKeyPoint: 5
-LoopClose.TotalMatchKeyPoint: 50
+LoopClose.TotalMatchKeyPoint: 40
 LoopClose.SystemWithoutLoopClose: 0
 KFDB.radioCommonWord: 0.8
 KFDB.radioAccScore: 0.7

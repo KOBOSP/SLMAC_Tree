@@ -239,7 +239,7 @@ namespace ORB_SLAM2 {
         /**
          * @brief Get MapPoint Matches 获取该关键帧的MapPoints
          */
-        std::vector<MapPoint *> GetMapPointMatches();
+        std::vector<MapPoint *> GetAllMapPointInKF(bool NeedObjectMP = true);
 
         /**
          * @brief 关键帧中，大于等于minObs的MapPoints的数量
@@ -254,7 +254,7 @@ namespace ORB_SLAM2 {
          * @param[in] idx id
          * @return MapPoint* 地图点句柄
          */
-        MapPoint *GetMapPoint(const size_t &idx);
+        MapPoint *GetMapPointByIndex(const size_t &idx);
 
         // KeyPoint functions
         /**
@@ -264,8 +264,8 @@ namespace ORB_SLAM2 {
          * @param[in] r 邻域大小(半径)
          * @return std::vector<size_t> 在这个邻域内找到的特征点索引的集合
          */
-        std::vector<size_t> GetFeaturesInArea(const float &x, const float &y, const float &r) const;
-
+        std::vector<size_t> GetKeyPointsByArea(const float &x, const float &y, const float &r) const;
+        std::vector<size_t> GetKeyPointsByObjectID(int ClassID) const;
 
         // Image
         /**

@@ -58,7 +58,7 @@ Sim3Solver::Sim3Solver(KeyFrame *pKF1, KeyFrame *pKF2, const vector<MapPoint *> 
     mpKF2 = pKF2;       // 闭环关键帧
 
     // Step 1 取出当前关键帧中的所有地图点
-    vector<MapPoint*> vpKeyFrameMP1 = pKF1->GetMapPointMatches();
+    vector<MapPoint*> vpKeyFrameMP1 = pKF1->GetAllMapPointInKF();
 
     // 最多匹配的地图点数目
     mN1 = vpMatched12.size();
@@ -89,13 +89,10 @@ Sim3Solver::Sim3Solver(KeyFrame *pKF1, KeyFrame *pKF2, const vector<MapPoint *> 
             // pMP1和pMP2是匹配的MapPoint
             MapPoint* pMP1 = vpKeyFrameMP1[i1]; //i1 是匹配地图点在KF1的索引
             MapPoint* pMP2 = vpMatched12[i1];   //vpMatched12[i1] 是在KF2中对应的匹配地图点
-
             if(!pMP1)
                 continue;
-
             if(pMP1->isBad() || pMP2->isBad())
                 continue;
-
             // indexKF1和indexKF2是匹配特征点的索引
             int indexKF1 = pMP1->GetIndexInKeyFrame(pKF1);
             int indexKF2 = pMP2->GetIndexInKeyFrame(pKF2);

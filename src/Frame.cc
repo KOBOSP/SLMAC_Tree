@@ -136,11 +136,11 @@ Frame::Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extra
 	// Step 3 对这个单目图像进行提取特征点, 第一个参数0-左图， 1-右图
     // 左图的话就套使用左图指定的特征点提取器，并将提取结果保存到对应的变量中
     (*mpORBextractorLeft).RunExtractORB(imGray,				//待提取特征点的图像
+                                        vTars,
                                         mvKeys,			//输出变量，用于保存提取后的特征点
                                         mDescriptors);	//输出变量，用于保存特征点的描述子
 	//求出特征点的个数
     mnKeyPointNum = mvKeys.size();
-
 	//如果没有能够成功提取出特征点，那么就直接返回了
     if(mvKeys.empty())
         return;
@@ -152,8 +152,7 @@ Frame::Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extra
     mvbOutlier = vector<bool>(mnKeyPointNum, false);
     // This is done only for the first Frame (or after a change in the calibration)
 	//  Step 5 计算去畸变后图像边界，将特征点分配到网格中。这个过程一般是在第一帧或者是相机标定参数发生变化之后进行
-    if(mbInitialComputations)
-    {
+    if(mbInitialComputations){
 		// 计算去畸变后图像的边界
         ComputeImageBounds(imGray);
 
@@ -174,7 +173,6 @@ Frame::Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extra
 		//特殊的初始化过程完成，标志复位
         mbInitialComputations=false;
     }
-
 
 	// 将特征点分配到图像网格中 
     AssignFeaturesToGrid();

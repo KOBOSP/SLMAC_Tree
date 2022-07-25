@@ -58,7 +58,7 @@ void MapDrawer::DrawMapPoints()
 {
     //取出所有的地图点
     const vector<MapPoint*> &vpMPs = mpMap->GetAllMapPoints();
-    //取出mvpReferenceMapPoints，也即局部地图d点
+    //取出mvpReferenceMapPoints，也即局部地图点
     const vector<MapPoint*> &vpRefMPs = mpMap->GetReferenceMapPoints();
 
     //将vpRefMPs从vector容器类型转化为set容器类型，便于使用set::count快速统计 - 我觉得称之为"重新构造"可能更加合适一些
@@ -75,10 +75,9 @@ void MapDrawer::DrawMapPoints()
     glColor3f(0.0,0.0,0.0);         //黑色
     for(size_t i=0, iend=vpMPs.size(); i<iend;i++)
     {
-        // 不包括ReferenceMapPoints（局部地图点）
-        if(vpMPs[i]->isBad() || spRefMPs.count(vpMPs[i]))
+        if(vpMPs[i]->isBad())
             continue;
-        if(vpMPs[i]->mbObject){
+        if(vpMPs[i]->mnObjectID>0){
             glEnd();
             glPointSize(mPointSize*5);
             glBegin(GL_POINTS);
@@ -90,6 +89,9 @@ void MapDrawer::DrawMapPoints()
             glBegin(GL_POINTS);
             glColor3f(0.0,0.0,0.0);         //黑色
         }
+        // 不包括ReferenceMapPoints（局部地图点）
+        if(spRefMPs.count(vpMPs[i]))
+            continue;
         cv::Mat pos = vpMPs[i]->GetWorldPos();
         glVertex3f(pos.at<float>(0),pos.at<float>(1),pos.at<float>(2));
     }
@@ -100,10 +102,21 @@ void MapDrawer::DrawMapPoints()
     glPointSize(mPointSize);
     glBegin(GL_POINTS);
     glColor3f(1.0,0.0,0.0);
-    for(set<MapPoint*>::iterator sit=spRefMPs.begin(), send=spRefMPs.end(); sit!=send; sit++)
-    {
+    for(set<MapPoint*>::iterator sit=spRefMPs.begin(), send=spRefMPs.end(); sit!=send; sit++){
         if((*sit)->isBad())
             continue;
+        if((*sit)->mnObjectID>0){
+            glEnd();
+            glPointSize(mPointSize*3);
+            glBegin(GL_POINTS);
+            glColor3f(0.0,1.0,0.0);
+            cv::Mat pos = (*sit)->GetWorldPos();
+            glVertex3f(pos.at<float>(0),pos.at<float>(1),pos.at<float>(2));
+            glEnd();
+            glPointSize(mPointSize);
+            glBegin(GL_POINTS);
+            glColor3f(1.0,0.0,0.0);
+        }
         cv::Mat pos = (*sit)->GetWorldPos();
         glVertex3f(pos.at<float>(0),pos.at<float>(1),pos.at<float>(2));
 

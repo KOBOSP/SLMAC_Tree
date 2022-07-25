@@ -77,12 +77,6 @@ public:
      */
     void SetReferenceMapPoints(const std::vector<MapPoint*> &vpMPs);
 
-    /**
-     * @brief 获取最大改变;
-     *
-     * @return int
-     */
-    int GetLastBigChangeIdx();
 
     /**
      * @brief 获取地图中的所有关键帧
@@ -95,7 +89,7 @@ public:
      * 
      * @return std::vector<MapPoint*> 获得的地图点序列
      */
-    std::vector<MapPoint*> GetAllMapPoints();
+    std::vector<MapPoint*> GetAllMapPoints(bool NeedObjectMP = true);
     /**
      * @brief 获取地图中的所有参考地图点
      * 
