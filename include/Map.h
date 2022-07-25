@@ -90,6 +90,8 @@ public:
      * @return std::vector<MapPoint*> 获得的地图点序列
      */
     std::vector<MapPoint*> GetAllMapPoints(bool NeedObjectMP = true);
+    std::vector<MapPoint*> GetAllObjects();
+    std::vector<MapPoint*> GetMapPointsByObjectID(int ObjectID);
     /**
      * @brief 获取地图中的所有参考地图点
      * 

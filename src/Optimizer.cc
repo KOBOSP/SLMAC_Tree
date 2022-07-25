@@ -350,7 +350,7 @@ int Optimizer::OptimizeFramePose(Frame *pFrame)
         // 如果这个地图点还存在没有被剔除掉
         if(pMP){
             // 跳过无效地图点
-            if(pMP->isBad() && pMP->mnObjectID>0){
+            if(pMP->isBad() || pMP->mnObjectID>0){
                 continue;
             }
             // Monocular observation
@@ -386,10 +386,8 @@ int Optimizer::OptimizeFramePose(Frame *pFrame)
             e->Xw[2] = Xw.at<float>(2);
 
             optimizer.addEdge(e);
-
             vpEdgesMono.push_back(e);
             vnIndexEdgeMono.push_back(i);
-
         }
 
     }
@@ -415,8 +413,9 @@ int Optimizer::OptimizeFramePose(Frame *pFrame)
         // 其实就是初始化优化器,这里的参数0就算是不填写,默认也是0,也就是只对level为0的边进行优化
         optimizer.initializeOptimization(0);
         // 开始优化，优化10次
+        cout<<it<<endl;
         optimizer.optimize(its[it]);
-
+        cout<<it<<endl;
         nBad=0;
         // 优化结束,开始遍历参与优化的每一条误差边(单目)
         for(size_t i=0, iend=vpEdgesMono.size(); i<iend; i++){
@@ -879,8 +878,8 @@ void Optimizer::OptimizeLocalObject(KeyFrame *pKF, bool* pbStopFlag, Map* pMap)
                 }
             }
         }
-        printf("lLocalKeyFrames.size(): %d<3||lFixedCameras.size(): %d<3||lLocalObjects.size(): %d<3\n",
-               lLocalKeyFrames.size(), lFixedCameras.size(), lLocalObjects.size());
+//        printf("lLocalKeyFrames.size(): %d<3||lFixedCameras.size(): %d<3||lLocalObjects.size(): %d<3\n",
+//               lLocalKeyFrames.size(), lFixedCameras.size(), lLocalObjects.size());
         if(lLocalKeyFrames.size()<3||lFixedCameras.size()<3||lLocalObjects.size()<3){
             return;
         }
@@ -1027,7 +1026,7 @@ void Optimizer::OptimizeLocalObject(KeyFrame *pKF, bool* pbStopFlag, Map* pMap)
                 vpMapPointEdgeMono.push_back(pMP);
             } // 遍历所有观测到当前地图点的关键帧
         } // 遍历所有的局部地图中的地图点
-        printf("vpEdgesMono.size(): %u",vpEdgesMono.size());
+//        printf("vpEdgesMono.size(): %u",vpEdgesMono.size());
         if(vpEdgesMono.size()<3){
             return;
         }

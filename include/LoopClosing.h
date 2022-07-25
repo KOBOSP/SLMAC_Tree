@@ -142,6 +142,7 @@ protected:
      */
     void SearchAndFuseMPsInLoopMap(const KeyFrameAndPose &CorrectedPosesMap);
 
+    void FuseRedundantObjectInGlobalMap();
     /**
      * @brief 闭环纠正
      * @detials \n
@@ -195,6 +196,7 @@ protected:
     int mnfpsByCfgFile;
     int mnSingleMatchKeyPoint;
     int mnTotalMatchKeyPoint;
+    int mnMaxObjectID;
 
     // Loop detector variables
     /// 当前关键帧,其实称之为"当前正在处理的关键帧"更加合适
@@ -211,6 +213,7 @@ protected:
     std::vector<MapPoint*> mvpCurrentMatchedPoints;
     /// 闭环关键帧上的所有相连关键帧的地图点
     std::vector<MapPoint*> mvpLoopMapPoints;
+    std::vector<std::vector<MapPoint*>> mvvpSameIDObject;
     // 下面的变量的cv::Mat格式版本
     cv::Mat mScw;
     // 当得到了当前关键帧的闭环关键帧以后,计算出来的从世界坐标系到当前帧的sim3变换

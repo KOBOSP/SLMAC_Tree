@@ -118,8 +118,9 @@ int ORBmatcher::SearchFMatchPointByProjectMapPoint(Frame &F, const vector<MapPoi
             // 判断该点是否要投影
             if(!pMP->mbTrackInView)
                 continue;
-            if(pMP->isBad())
+            if(pMP->isBad()|| pMP->mnObjectID>0){
                 continue;
+            }
             // 通过距离预测的金字塔层数，该层数相对于当前的帧
             const int &nPredictedLevel = pMP->mnTrackScaleLevel;
             // The size of the window will depend on the viewing direction
@@ -371,6 +372,9 @@ int ORBmatcher::SearchFMatchPointByProjectLastFrame(Frame &CurrentFrame, const F
         for(int i=0; i<LastFrame.mnKeyPointNum; i++){
             MapPoint* pMP = LastFrame.mvpMapPoints[i];
             if(pMP){
+                if(pMP->mnObjectID>0){
+                    continue;
+                }
                 if(!LastFrame.mvbOutlier[i]){
                     // 对上一帧有效的MapPoints投影到当前帧坐标系
                     cv::Mat x3Dw = pMP->GetWorldPos();
@@ -508,6 +512,9 @@ int ORBmatcher::SearchFMatchPointByProjectKeyFrame(Frame &CurrentFrame, KeyFrame
 
             if(pMP)
             {
+                if(pMP->mnObjectID>0){
+                    continue;
+                }
                 // 地图点存在 并且 不在已有地图点集合里
                 if(!pMP->isBad() && !sAlreadyFound.count(pMP))
                 {
@@ -555,30 +562,23 @@ int ORBmatcher::SearchFMatchPointByProjectKeyFrame(Frame &CurrentFrame, KeyFrame
                     int bestDist = 256;
                     int bestIdx2 = -1;
                     // Step 4 遍历候选匹配点，寻找距离最小的最佳匹配点
-                    for(vector<size_t>::const_iterator vit=vIndices2.begin(); vit!=vIndices2.end(); vit++)
-                    {
+                    for(vector<size_t>::const_iterator vit=vIndices2.begin(); vit!=vIndices2.end(); vit++){
                         const size_t i2 = *vit;
                         if(CurrentFrame.mvpMapPoints[i2])
                             continue;
-
                         const cv::Mat &d = CurrentFrame.mDescriptors.row(i2);
-
                         const int dist = ComputeDescriptorDistance(dMP, d);
-
-                        if(dist<bestDist)
-                        {
+                        if(dist<bestDist){
                             bestDist=dist;
                             bestIdx2=i2;
                         }
                     }
 
-                    if(bestDist<=ORBdist)
-                    {
+                    if(bestDist<=ORBdist){
                         CurrentFrame.mvpMapPoints[bestIdx2]=pMP;
                         nmatches++;
                         // Step 5 计算匹配点旋转角度差所在的直方图
-                        if(mbCheckOrientation)
-                        {
+                        if(mbCheckOrientation){
                             float rot = pKF->mvKeysUn[i].angle-CurrentFrame.mvKeysUn[bestIdx2].angle;
                             if(rot<0.0)
                                 rot+=360.0f;
@@ -589,26 +589,19 @@ int ORBmatcher::SearchFMatchPointByProjectKeyFrame(Frame &CurrentFrame, KeyFrame
                             rotHist[bin].push_back(bestIdx2);
                         }
                     }
-
                 }
             }
         }
 
         //  Step 6 进行旋转一致检测，剔除不一致的匹配
-        if(mbCheckOrientation)
-        {
+        if(mbCheckOrientation){
             int ind1=-1;
             int ind2=-1;
             int ind3=-1;
-
             ComputeThreeMaxOrienta(rotHist, HISTO_LENGTH, ind1, ind2, ind3);
-
-            for(int i=0; i<HISTO_LENGTH; i++)
-            {
-                if(i!=ind1 && i!=ind2 && i!=ind3)
-                {
-                    for(size_t j=0, jend=rotHist[i].size(); j<jend; j++)
-                    {
+            for(int i=0; i<HISTO_LENGTH; i++){
+                if(i!=ind1 && i!=ind2 && i!=ind3){
+                    for(size_t j=0, jend=rotHist[i].size(); j<jend; j++){
                         CurrentFrame.mvpMapPoints[rotHist[i][j]]=NULL;
                         nmatches--;
                     }
@@ -661,8 +654,9 @@ int ORBmatcher::SearchMatchPointInInitialization(Frame &F1, Frame &F2, vector<cv
         cv::KeyPoint kp1 = F1.mvKeysUn[i1];
         int level1 = kp1.octave;
         // 只使用原始图像上提取的特征点
-        if(level1>0)
+        if(level1>0||kp1.class_id>0){
             continue;
+        }
 
         // Step 2 在半径窗口内搜索当前帧F2中所有的候选匹配特征点 
         // vbPrevMatched 输入的是参考帧 F1的特征点
@@ -825,8 +819,9 @@ int ORBmatcher::SearchFMatchPointByKFBoW(KeyFrame* pKF, Frame &F, vector<MapPoin
                     MapPoint* pMP = vpMapPointsKF[realIdxKF];
                     if(!pMP)
                         continue;
-                    if(pMP->isBad())
+                    if(pMP->isBad()|| pMP->mnObjectID>0){
                         continue;
+                    }
                     const cv::Mat &dKF= pKF->mDescriptors.row(realIdxKF); // 取出KF中该特征对应的描述子
                     int bestDist1=256; // 最好的距离（最小距离）
                     int bestIdxF =-1 ;
@@ -1503,8 +1498,9 @@ int ORBmatcher::SearchAndFuseMPsInLoopClose(KeyFrame *pKF, cv::Mat Scw, const ve
         MapPoint* pMP = vpPoints[iMP];
         // Discard Bad MapPoints and already found
         // 地图点无效 或 已经是该帧的地图点（无需融合），跳过
-        if(pMP->isBad() || spAlreadyFound.count(pMP))
+        if(pMP->isBad() || spAlreadyFound.count(pMP) || pMP->mnObjectID>0){
             continue;
+        }
 
         // Get 3D Coords.
         // Step 2 地图点变换到当前相机坐标系下
@@ -1631,8 +1627,9 @@ int ORBmatcher::FuseRedundantMapPointInLocalMap(KeyFrame *pKF, const vector<MapP
         if(!pMP)
             continue;
         // 地图点无效 或 已经是该帧的地图点（无需融合），跳过
-        if(pMP->isBad() || pMP->IsInKeyFrame(pKF))
+        if(pMP->isBad() || pMP->IsInKeyFrame(pKF) || pMP->mnObjectID>0){
             continue;
+        }
         int bestDist = 256;
         int bestIdx = -1;
         if(pMP->mnObjectID<0){
@@ -1709,14 +1706,15 @@ int ORBmatcher::FuseRedundantMapPointInLocalMap(KeyFrame *pKF, const vector<MapP
                 }
             }
         }
-        else{
-            const vector<size_t> vIndices = pKF->GetKeyPointsByObjectID(pMP->mnObjectID);
-            if(vIndices.empty()){
-                continue;
-            }
-            bestIdx=vIndices[0];
-            bestDist=0;
-        }
+//        else{
+//            const vector<size_t> vIndices = pKF->GetKeyPointsByObjectID(pMP->mnObjectID);
+//            if(vIndices.empty()){
+//                continue;
+//            }
+//            cout<<"vIndices.size(): "<<vIndices.size()<<endl;
+//            bestIdx=vIndices[0];
+//            bestDist=0;
+//        }
 
 
         // If there is already a MapPoint replace otherwise addKFtoDB new measurement
@@ -1725,17 +1723,22 @@ int ORBmatcher::FuseRedundantMapPointInLocalMap(KeyFrame *pKF, const vector<MapP
         if(bestDist<=TH_LOW){
             MapPoint* pMPinKF = pKF->GetMapPointByIndex(bestIdx);
             if(pMPinKF){
+                cout<<"1: pMPinKF->mnObjectID: pMPinKF->Observations(): pMP->Observations(): "<<pMPinKF->mnObjectID <<" " <<pMPinKF->Observations()<<" "<<pMP->Observations()<< endl;
                 // 如果最佳匹配点有对应有效地图点，选择被观测次数最多的那个替换
                 if(!pMPinKF->isBad()){
+                    cout<<"2: "<<endl;
                     if(pMPinKF->Observations()>pMP->Observations()){
+                        cout<<"3: "<<endl;
                         pMP->Replace(pMPinKF);
                     }
                     else{
+                        cout<<"4: "<<endl;
                         pMPinKF->Replace(pMP);
                     }
                 }
             }
             else{
+                cout<<"5: "<<endl;
                 // 如果最佳匹配点没有对应地图点，添加观测信息
                 pMP->AddObservation(pKF,bestIdx);
                 pKF->AddMapPoint(pMP,bestIdx);
