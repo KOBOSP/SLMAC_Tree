@@ -40,9 +40,9 @@ namespace ORB_SLAM2
 {
 
 // 构造函数
-LocalMapping::LocalMapping(Map *pMap, const float bMonocular):
+LocalMapping::LocalMapping(Map *pMap, const float bMonocular, float fCullKFRedundantMPRate):
     mbMonocular(bMonocular), mbResetRequested(false), mbFinishRequested(false), mbFinished(true), mpMap(pMap),
-    mbAbortBA(false), mbStopped(false), mbStopRequested(false), mbNotStop(false), mbAcceptKeyFrames(true)
+    mbAbortBA(false), mbStopped(false), mbStopRequested(false), mbNotStop(false), mbAcceptKeyFrames(true), mfCullKFRedundantMPRate(fCullKFRedundantMPRate)
 {
     /*
      * mbStopRequested：    外部线程调用，为true，表示外部线程请求停止 local mapping
@@ -96,7 +96,7 @@ void LocalMapping::Run()
             if(!HaveNewKeyFrameInQueue()){
                 // Find more matches in neighbor keyframes and fuse point duplications
                 //  Step 5 检查并融合当前关键帧与相邻关键帧帧（两级相邻）中重复的地图点
-                FuseMapPointsInNeighbors();
+                FuseMapPointsByNeighbors();
                 FuseObjectsInGlobalMap();
             }
             // 终止BA的标志
@@ -323,7 +323,7 @@ void LocalMapping::CreateNewMapPointsAndObjectsByNerborKFs()
         // 基线与景深的比例
         const float ratioBaselineDepth = baseline/medianDepthKF2;
         // 如果比例特别小，基线太短恢复3D点不准，那么跳过当前邻接的关键帧，不生成3D点
-        if(ratioBaselineDepth<0.01)
+        if(ratioBaselineDepth<0.1)
             continue;
 
         // Compute Fundamental Matrix
@@ -495,7 +495,7 @@ void LocalMapping::CreateNewMapPointsAndObjectsByNerborKFs()
  * @brief 检查并融合当前关键帧与相邻帧（两级相邻）重复的地图点
  * 
  */
-void LocalMapping::FuseMapPointsInNeighbors()
+void LocalMapping::FuseMapPointsByNeighbors()
 {
     // Retrieve neighbor keyframes
     // Step 1：获得当前关键帧在共视图中权重排名前nn的邻接关键帧
@@ -583,7 +583,7 @@ void LocalMapping::FuseMapPointsInNeighbors()
 //    cout<<"-1 vpFuseCandidates.size(): "<<vpFuseCandidates.size()<<endl;
     // Step 4.2：进行地图点投影融合,和正向融合操作是完全相同的
     // 不同的是正向操作是"每个关键帧和当前关键帧的地图点进行融合",而这里的是"当前关键帧和所有邻接关键帧的地图点进行融合"
-        matcher.FuseRedundantMapPointAndSameIdObjectInLocalMap(mpCurrentKeyFrame, vpFuseCandidates);
+    matcher.FuseRedundantMapPointAndSameIdObjectInLocalMap(mpCurrentKeyFrame, vpFuseCandidates);
 
     // UpdateImgKPMPState points
     // Step 5：更新当前帧地图点的描述子、深度、平均观测方向等属性
@@ -610,7 +610,8 @@ void LocalMapping::FuseMapPointsInNeighbors()
 void LocalMapping::FuseObjectsInGlobalMap(){
 
     vector<MapPoint*> vpObjectInCurKF = mpCurrentKeyFrame->GetAllObjctsInKF();
-    vector<MapPoint*> vpObjectInGlobalMap = mpMap->GetAllObjectsInMap();
+    vector<MapPoint*> vpObjectInGlobalMap;
+    mpMap->GetAllObjectsInMap(vpObjectInGlobalMap);
     vector<KeyFrame*> vpCandidateKF;//current mappoint project into this KF
     vector<MapPoint*> vpCandidateMP;//this same id mappoint project into current KF
     vpCandidateKF.resize(vpObjectInCurKF.size()*3);
@@ -890,8 +891,9 @@ void LocalMapping::CullRedundantKeyFrame()
             }
         }
         // Step 4：如果该关键帧90%以上的有效地图点被判断为冗余的，则认为该关键帧是冗余的，需要删除该关键帧
-        if(nRedundantObservations>0.8*nMPs)
+        if(nRedundantObservations>mfCullKFRedundantMPRate*nMPs){
             pKF->SetBadFlag();
+        }
     }
 }
 

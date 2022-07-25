@@ -116,7 +116,8 @@ public:
 
 protected:
     void FuseSameIdObjectInGlobalMap();
-    void LinkObjectIdByProjectGlobalMapToCurrentMap();
+    int FuseMapPointsBySeeSameObjectId();
+    void LinkObjectIdByProjectGlobalMapToCurrentKF();
     void LinkObjectIdByProjectGlobalMapToAllKF();
     int GetRootIdxToSameObjectIdMap(int idx);
 
@@ -138,8 +139,8 @@ protected:
      * 注意以上匹配的结果均都存在成员变量mvpCurrentMatchedPoints中，实际的更新步骤见CorrectLoop()步骤3：Start Loop Fusion \n
      * 对于双目或者是RGBD输入的情况,计算得到的尺度=1
      */
-    bool ComputeSim3AndMatchPointsByMapPoint();
-
+    bool ComputeBoWAndSim3ToMatchPointsByMapPoint();
+    bool ComputeBoWAndSim3ToMatchPointsByObject();
 
     /**
      * @brief 通过将闭环时相连关键帧的MapPoints投影到这些关键帧中，进行MapPoints检查与替换
@@ -157,6 +158,8 @@ protected:
      * 5. 创建线程进行全局Bundle Adjustment
      */
     void CorrectLoopByMapPoint();
+    void CorrectLoopByObject();
+
 
     /** @brief  当前线程调用,检查是否有外部线程请求复位当前线程,如果有的话就复位回环检测线程 */
     void ResetIfRequested();
@@ -201,8 +204,10 @@ protected:
     int mnfpsByCfgFile;
     int mnSingleMatchKeyPoint;
     int mnTotalMatchKeyPoint;
+    int mnFuseMPByObjectSceneTh;
+    int mnDetectLoopByFusedMPNumTh;
     std::vector<int> mvnSameObjectIdMap;
-
+    std::set<int> msLinkedObjectID;
     // Loop detector variables
     /// 当前关键帧,其实称之为"当前正在处理的关键帧"更加合适
     KeyFrame* mpCurrentKF;
@@ -224,7 +229,8 @@ protected:
     g2o::Sim3 mg2oScw;
 
     /// 上一次闭环帧的id
-    long unsigned int mLastMapPointLoopKFid;
+    long unsigned int mLastMapPointLoopKFId;
+    long unsigned int mLastMapPointCoSeeKFId;
 
     // Variables related to Global Bundle Adjustment
     /// 全局BA线程是否在进行

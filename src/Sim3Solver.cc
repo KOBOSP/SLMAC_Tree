@@ -52,8 +52,7 @@ namespace ORB_SLAM2
  * @param[in] bFixScale         当前传感器类型的输入需不需要计算尺度。单目的时候需要，双目和RGBD的时候就不需要了
  */
 Sim3Solver::Sim3Solver(KeyFrame *pKF1, KeyFrame *pKF2, const vector<MapPoint *> &vpMatched12, const bool bFixScale):
-    mnIterations(0), mnBestInliers(0), mbFixScale(bFixScale)
-{
+    mnIterations(0), mnBestInliers(0), mbFixScale(bFixScale){
     mpKF1 = pKF1;       // 当前关键帧
     mpKF2 = pKF2;       // 闭环关键帧
 
@@ -70,33 +69,28 @@ Sim3Solver::Sim3Solver(KeyFrame *pKF1, KeyFrame *pKF2, const vector<MapPoint *> 
     mvnIndices1.reserve(mN1);
     mvX3Dc1.reserve(mN1);
     mvX3Dc2.reserve(mN1);
-
     // 获取两个关键帧的位姿
     cv::Mat Rcw1 = pKF1->GetRotation();
     cv::Mat tcw1 = pKF1->GetTranslation();
     cv::Mat Rcw2 = pKF2->GetRotation();
     cv::Mat tcw2 = pKF2->GetTranslation();
-
     mvAllIndices.reserve(mN1);
 
     size_t idx=0;
     // Step 2 记录匹配地图点的各种信息 
-    for(int i1=0; i1<mN1; i1++)
-    {
+    for(int i1=0; i1<mN1; i1++){
         // 如果该特征点在pKF1中有匹配
-        if(vpMatched12[i1])
-        {
+        if(vpMatched12[i1]){
             // pMP1和pMP2是匹配的MapPoint
             MapPoint* pMP1 = vpKeyFrameMP1[i1]; //i1 是匹配地图点在KF1的索引
-            MapPoint* pMP2 = vpMatched12[i1];   //vpMatched12[i1] 是在KF2中对应的匹配地图点
-            if(!pMP1)
+            MapPoint* pMP2 = vpMatched12[i1]; //vpMatched12[i1] 是在KF2中对应的匹配地图点
+            if(!pMP1 || !pMP2)
                 continue;
             if(pMP1->isBad() || pMP2->isBad())
                 continue;
             // indexKF1和indexKF2是匹配特征点的索引
             int indexKF1 = pMP1->GetIndexInKeyFrame(pKF1);
             int indexKF2 = pMP2->GetIndexInKeyFrame(pKF2);
-
             if(indexKF1<0 || indexKF2<0)
                 continue;
 
@@ -452,7 +446,6 @@ void Sim3Solver::CheckInliers()
         // 取距离的平方作为误差
         const float err1 = dist1.dot(dist1);
         const float err2 = dist2.dot(dist2);
-
         // 根据之前确定的这个最大容许误差来确定这对匹配点是否是外点
         if(err1<mvnMaxError1[i] && err2<mvnMaxError2[i]){
             mvbInliersi[i]=true;

@@ -60,7 +60,7 @@ public:
      * @param[in] pMap          局部地图的句柄？ //?
      * @param[in] bMonocular    当前系统是否是单目输入
      */
-    LocalMapping(Map* pMap, const float bMonocular);
+    LocalMapping(Map* pMap, const float bMonocular, float fCullKFRedundantMPRate);
 
     /**
      * @brief 设置回环检测线程句柄
@@ -151,7 +151,7 @@ protected:
      */
     void CullRecentAddedMapPoints();
     /** @brief 检查并融合当前关键帧与相邻帧（两级相邻）重复的MapPoints */
-    void FuseMapPointsInNeighbors();
+    void FuseMapPointsByNeighbors();
     void FuseObjectsInGlobalMap();
     /**
      * @brief 关键帧剔除
@@ -176,6 +176,7 @@ protected:
 
     /// 当前系统输入数单目还是双目RGB-D的标志
     bool mbMonocular;
+    float mfCullKFRedundantMPRate;
 
     /** @brief 检查当前是否有复位线程的请求 */
     void ResetIfRequested();

@@ -69,6 +69,7 @@ System::System(const string &strVocFile,					//词典文件路径
     //Create KeyFrame Database
     mpKeyFrameDatabase = new KeyFrameDatabase(*mpVocabulary,strSettingsFile);
     int nMaxObjectID=fsSettings["Track.MaxObjectID"];
+    float fCullKFRedundantMPRate = fsSettings["LocalMap.CullKFRedundantMPRate"];
     //Create the Map
     mpMap = new Map(nMaxObjectID);
 
@@ -93,7 +94,8 @@ System::System(const string &strVocFile,					//词典文件路径
     //初始化局部建图线程并运行
     //GetInitializationMatrixRT the Local Mapping thread and launch
     mpLocalMapper = new LocalMapping(mpMap, 				//指定使iomanip
-    								 mSensor==MONOCULAR);
+    								 mSensor==MONOCULAR,
+                                     fCullKFRedundantMPRate);
     //运行这个局部建图线程
     mptLocalMapping = new thread(&ORB_SLAM2::LocalMapping::Run,	//这个线程会调用的函数
     							 mpLocalMapper);				//这个调用函数的参数

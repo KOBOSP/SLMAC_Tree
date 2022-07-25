@@ -244,6 +244,7 @@ public:
     // local mapping中记录地图点对应当前局部BA的关键帧的mnId。mnBALocalForKF 在map point.h里面也有同名的变量。
     long unsigned int mnBALocalForKF;          
     long unsigned int mnFuseCandidateInLM;     ///< 在局部建图线程中使用,表示被用来进行地图点融合的关键帧(存储的是这个关键帧的id)
+    long unsigned int mnFuseCandidateInLC;
 
     // Variables used by loop closing -- 一般都是为了避免重复操作
     /// 标记当前地图点是作为哪个"当前关键帧"的回环地图点(即回环关键帧上的地图点),在回环检测线程中被调用

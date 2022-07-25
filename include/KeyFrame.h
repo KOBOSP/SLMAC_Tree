@@ -149,7 +149,7 @@ namespace ORB_SLAM2 {
          * @param  pKF 关键帧
          * @return     权重
          */
-        int GetWeight(KeyFrame *pKF);
+        int GetKeyFrameConnectedWeight(KeyFrame *pKF);
 
         // ========================= Spanning tree functions =======================
         /**
@@ -283,7 +283,7 @@ namespace ORB_SLAM2 {
         void SetNotErase();
 
         /** @brief 准备删除当前的这个关键帧,表示不进行回环检测过程;由回环检测线程调用 */
-        void SetErase();
+        void SetCanErase();
 
         // Set/check bad flag
         /** @brief 真正地执行删除关键帧的操作 */
@@ -334,6 +334,8 @@ namespace ORB_SLAM2 {
         // Variables used by the tracking
         long unsigned int mnTrackReferenceForFrame;     // 记录它
         long unsigned int mnFuseCandidateInLM;        ///< 标记在局部建图线程中,和哪个关键帧进行融合的操作
+        long unsigned int mnFuseCandidateInLC;
+
 
         // Variables used by the local mapping
         // local mapping中记录当前处理的关键帧的mnId，表示当前局部BA的关键帧id。mnBALocalForKF 在map point.h里面也有同名的变量。
@@ -427,7 +429,7 @@ namespace ORB_SLAM2 {
         std::vector<std::vector<std::vector<size_t> > > mGrid;
 
         // Covisibility Graph
-        // 与该关键帧连接（至少15个共视地图点）的关键帧与权重
+        // 与该关键帧连接（至少15个共视地图点）的关键帧与权重，or the KF lower than th but has co-visit
         static int mnMinConnectedWeight;
         std::map<KeyFrame *, int> mmConnectedKeyFrameandWeights;
         // 共视关键帧中权重从大到小排序后的关键帧

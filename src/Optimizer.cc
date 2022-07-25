@@ -1241,7 +1241,7 @@ void Optimizer::OptimizeEssentialGraph(Map* pMap, KeyFrame* pLoopKF, KeyFrame* p
             // 同时满足下面2个条件的跳过
             // 条件1：至少有一个不是pCurKF或pLoopKF
             // 条件2：共视程度太少(<100),不足以构成约束的边
-            if((nIDi!=pCurKF->mnId || nIDj != pLoopKF->mnId) && pKF->GetWeight(*sit) < minFeat)
+            if((nIDi!=pCurKF->mnId || nIDj != pLoopKF->mnId) && pKF->GetKeyFrameConnectedWeight(*sit) < minFeat)
                 continue;
 
             // 通过上面考验的帧有两种情况：

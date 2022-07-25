@@ -45,7 +45,7 @@ int KeyFrame::mnMinConnectedWeight=15;
 KeyFrame::KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB):
         mnFrameId(F.mnId), mTimeStamp(F.mTimeStamp), mnGridCols(FRAME_GRID_COLS), mnGridRows(FRAME_GRID_ROWS),
         mfGridElementWidthInv(F.mfGridElementWidthInv), mfGridElementHeightInv(F.mfGridElementHeightInv),
-        mnTrackReferenceForFrame(0), mnFuseCandidateInLM(0), mnBALocalForKF(0), mnBAFixedForKF(0),
+        mnTrackReferenceForFrame(0), mnFuseCandidateInLM(0), mnFuseCandidateInLC(0), mnBALocalForKF(0), mnBAFixedForKF(0),
         mnFrameIDShareWord(0), mnShareWord(0), mnRelocQuery(0), mnRelocWords(0), mnBAGlobalForKF(0),
         fx(F.fx), fy(F.fy), cx(F.cx), cy(F.cy), invfx(F.invfx), invfy(F.invfy), mThDepth(F.mThDepth),
         mnKeyPointNum(F.mnKeyPointNum), mvKeys(F.mvKeys), mvKeysUn(F.mvKeysUn), mDescriptors(F.mDescriptors.clone()),
@@ -276,7 +276,7 @@ vector<KeyFrame*> KeyFrame::GetCovisiblesByWeight(const int &w){
 }
 
 // 得到该关键帧与pKF的权重
-int KeyFrame::GetWeight(KeyFrame *pKF){
+int KeyFrame::GetKeyFrameConnectedWeight(KeyFrame *pKF){
     unique_lock<mutex> lock(mMutexConnections);
     if(mmConnectedKeyFrameandWeights.count(pKF))
         return mmConnectedKeyFrameandWeights[pKF];
@@ -599,7 +599,7 @@ void KeyFrame::SetNotErase()
  * @brief 删除当前的这个关键帧,表示不进行回环检测过程;由回环检测线程调用
  * 
  */
-void KeyFrame::SetErase()
+void KeyFrame::SetCanErase()
 {
     {
         unique_lock<mutex> lock(mMutexConnections);
@@ -621,7 +621,7 @@ void KeyFrame::SetErase()
  * 
  * mbNotErase作用：表示要删除该关键帧及其连接关系但是这个关键帧有可能正在回环检测或者计算sim3操作，这时候虽然这个关键帧冗余，但是却不能删除，
  * 仅设置mbNotErase为true，这时候调用setbadflag函数时，不会将这个关键帧删除，只会把mbTobeErase变成true，代表这个关键帧可以删除但不到时候,先记下来以后处理。
- * 在闭环线程里调用 SetErase()会根据mbToBeErased 来删除之前可以删除还没删除的帧。
+ * 在闭环线程里调用 SetCanErase()会根据mbToBeErased 来删除之前可以删除还没删除的帧。
  */
 void KeyFrame::SetBadFlag()
 {   
@@ -692,7 +692,7 @@ void KeyFrame::SetBadFlag()
                     for(set<KeyFrame*>::iterator spcit=sParentCandidates.begin(), spcend=sParentCandidates.end(); spcit!=spcend; spcit++){
                         // Step 4.3 如果孩子和sParentCandidates中有共视，选择共视最强的那个作为新的父
                         if(vpConnected[i]->mnId == (*spcit)->mnId){
-                            int w = pKF->GetWeight(vpConnected[i]);
+                            int w = pKF->GetKeyFrameConnectedWeight(vpConnected[i]);
                             // 寻找并更新权值最大的那个共视关系
                             if(w>max){
                                 pC = pKF;                   //子关键帧

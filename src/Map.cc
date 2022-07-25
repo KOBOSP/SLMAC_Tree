@@ -116,6 +116,12 @@ void Map::SetReferenceObjects(const vector<MapPoint *> &vpMPs)
     mvpReferenceObjects = vpMPs;
 }
 
+void Map::AddReferenceMapPoints(const vector<MapPoint *> &vpMPs)
+{
+    unique_lock<mutex> lock(mMutexMap);
+    mvpReferenceObjects.insert(mvpReferenceObjects.end(), vpMPs.begin(),vpMPs.end());
+}
+
 
 //获取地图中的所有关键帧
 vector<KeyFrame*> Map::GetAllKeyFrames()
@@ -138,16 +144,25 @@ vector<MapPoint*> Map::GetAllMapPoints(bool NeedObjectMP)
     return tmp;
 }
 
-vector<MapPoint*> Map::GetAllObjectsInMap()
-{
+void Map::GetAllObjectsInMap(vector<MapPoint*> &vMPs){
     unique_lock<mutex> lock(mMutexMap);
-    vector<MapPoint*> tmp;
     for(set<MapPoint*>::iterator ipMP=mspMapPoints.begin();ipMP!=mspMapPoints.end();ipMP++){
         if((*ipMP)->mnObjectID>0){
-            tmp.emplace_back((*ipMP));
+            vMPs.emplace_back((*ipMP));
         }
     }
-    return tmp;
+}
+
+long unsigned int Map::GetObcjectsNumInMap()
+{
+    unique_lock<mutex> lock(mMutexMap);
+    long unsigned int num=0;
+    for(set<MapPoint*>::iterator ipMP=mspMapPoints.begin();ipMP!=mspMapPoints.end();ipMP++){
+        if((*ipMP)->mnObjectID>0){
+            num++;
+        }
+    }
+    return num;
 }
 
 //获取地图点数目

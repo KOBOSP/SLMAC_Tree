@@ -204,7 +204,7 @@ protected:
      * @brief 检查上一帧中的MapPoints是否被替换
      * 
      * Local Mapping线程可能会将关键帧中某些MapPoints进行替换，由于tracking中需要用到mLastFrame，这里检查并更新上一帧中被替换的MapPoints
-     * @see LocalMapping::FuseMapPointsInNeighbors()
+     * @see LocalMapping::FuseMapPointsByNeighbors()
      */
     void CheckReplacedInLastFrame();
 

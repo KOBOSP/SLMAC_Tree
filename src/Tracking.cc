@@ -857,7 +857,7 @@ void Tracking::CreateInitialMapMonocular()
  * @brief 检查上一帧中的地图点是否需要被替换
  * 
  * Local Mapping线程可能会将关键帧中某些地图点进行替换，由于tracking中需要用到上一帧地图点，所以这里检查并更新上一帧中被替换的地图点
- * @see LocalMapping::FuseMapPointsInNeighbors()
+ * @see LocalMapping::FuseMapPointsByNeighbors()
  */
 void Tracking::CheckReplacedInLastFrame(){
     for(int i =0; i<mLastFrame.mnKeyPointNum; i++){
@@ -1167,7 +1167,7 @@ bool Tracking::NeedNewKeyFrame()
     // Step 7：决策是否需要插入关键帧
     // Thresholds
     // Step 7.1：设定比例阈值，当前帧和参考关键帧跟踪到点的比例，比例越大，越倾向于增加关键帧
-    float thRefRatio = 0.7f;
+    float thRefRatio = 0.5f;
     if(mbBadVO){
         thRefRatio=1.0f;
     }

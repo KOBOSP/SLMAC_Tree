@@ -51,10 +51,14 @@ Track.GoodLMVOThreshold: 40
 Track.LossLMVOThreshold: 20
 Track.MaxFrameID: 15000
 Track.MaxObjectID: 3000
+LocalMap.CullKFRedundantMPRate: 60
 LoopClose.CovisibilityConsistencyTh: 3
-LoopClose.SingleMatchKeyPoint: 5
-LoopClose.TotalMatchKeyPoint: 40
+#int KeyFrame::mnMinConnectedWeight=15;
+LoopClose.SingleMatchKeyPoint: 15
+LoopClose.TotalMatchKeyPoint: 30
 LoopClose.SystemWithoutLoopClose: 0
+LoopClose.FuseMPByObjectSceneThreshold: 2
+LoopClose.DetectLoopByFusedMPNumThreshold: 100
 KFDB.radioCommonWord: 0.8
 KFDB.radioAccScore: 0.7
  

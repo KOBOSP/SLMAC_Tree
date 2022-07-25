@@ -176,8 +176,9 @@ void FrameDrawer::DrawTextInfo(cv::Mat &im, int nState, cv::Mat &imText)
             s << "LOCALIZATION | ";
         int nKFs = mpMap->GetKeyFramesNumInMap();
         int nMPs = mpMap->GetMapPointsNumInMap();
-        s << "fps: "<< int(1/(mdCurrentTimeStamp-mdLastTimeStamp)) <<" KFs: " << nKFs << ", MPs: " << nMPs
-        << ", Map mat: " << mnTrackedMap << ", VO mat: " << mnTrackedVO << ", Target: " << mnTrackedTarget;
+        int nObs = mpMap->GetObcjectsNumInMap();
+        s << "fps: "<< int(1/(mdCurrentTimeStamp-mdLastTimeStamp)) <<" KFs: " << nKFs << ", MPs: " << nMPs <<", Obs: " << nObs
+        << ", MapTra: " << mnTrackedMap << ", VOTra: " << mnTrackedVO << ", TarTra: " << mnTrackedTarget;
     }
     else if(nState==Tracking::LOST){
         s << " TRACK LOST. TRYING TO RELOCALIZE ";

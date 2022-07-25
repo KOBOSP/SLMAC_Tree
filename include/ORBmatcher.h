@@ -206,8 +206,8 @@ public:
      * @param[in] th            搜索窗口的阈值
      * @return int 
      */
-    int FuseRedundantMapPointAndSameIdObjectInLocalMap(KeyFrame* pKF, const vector<MapPoint *> &vpMapPoints, const float th=3.0);
-    int FuseRedundantDifferIdObjectInLocalMap(KeyFrame* pKF, const vector<MapPoint *> &vpMapPoints, vector<int> &vnSameObjectIdMap, bool notRecursion = false, const float th = TH_LOW/2);
+    int FuseRedundantMapPointAndSameIdObjectInLocalMap(KeyFrame* pKF, const vector<MapPoint *> &vpMapPoints, const float th=3.0, bool bInLoopClose = false);
+    int FuseRedundantDifferIdObjectInLocalMap(KeyFrame* pKF, const vector<MapPoint *> &vpMapPoints, vector<int> &vnSameObjectIdMap, set<int> &sLinkedObjectID, bool notRecursion = false, const float th = TH_LOW);
 
     // Project MapPoints into KeyFrame using a given Sim3 and search for duplicated MapPoints.
     /**
