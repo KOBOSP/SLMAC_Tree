@@ -139,7 +139,7 @@ System::System(const string &strVocFile,					//词典文件路径
 }
 
 //同理，输入为单目图像时的追踪器接口
-cv::Mat System::TrackMonocular(const cv::Mat &im, const double &timestamp, int FrameID, cv::Mat &Trtk)
+cv::Mat System::TrackMonocular(const cv::Mat &im, const double &timestamp, int FrameID, cv::Mat Trtk)
 {
     if(mSensor!=MONOCULAR){
         cerr << "ERROR: you called TrackMonocular but input sensor was not set to Monocular." << endl;
@@ -179,16 +179,25 @@ cv::Mat System::TrackMonocular(const cv::Mat &im, const double &timestamp, int F
             mbReset = false;
         }
     }
+    cv::Mat Tcw;
     //获取相机位姿的估计结果
-    mpTracker->CreateMonocularFrame(im, timestamp, FrameID, Trtk);
-    // Step 3 ：跟踪
-    cv::Mat Tcw = mpTracker->DoTrack();
-    //返回当前帧的位姿
+    if(mpTracker->CreatORBFrameOrOpticalTrack(im, timestamp, FrameID, Trtk, Tcw)){//false LK optical flow; true ORB_frame
+//        auto TimeStart = chrono::system_clock::now();
+//        auto TimeEnd = chrono::system_clock::now();
+//        double TimePast = chrono::duration_cast<chrono::milliseconds>(TimeEnd - TimeStart).count() / 1000.0;
+//        printf("Frame %u: %lf\n",mpTracker->mCurrentFrame.mnId, TimePast);
+//        clock_t a = clock();
+//        clock_t b = clock();
+//        cout<<"track LK optical flow use time:"<<1000*(float)(b-a)/CLOCKS_PER_SEC<<"ms"<<endl;
+//        Step 3 ：跟踪
+        Tcw = mpTracker->InitialOrDoORBTrack();
+        //返回当前帧的位姿
+        unique_lock<mutex> lock2(mMutexState);
+        mTrackingState = mpTracker->mState;
+        mTrackedMapPoints = mpTracker->mCurrentFrame.mvpMapPoints;
+        mTrackedKeyPointsUn = mpTracker->mCurrentFrame.mvKeysUn;
+    }
 
-    unique_lock<mutex> lock2(mMutexState);
-    mTrackingState = mpTracker->mState;
-    mTrackedMapPoints = mpTracker->mCurrentFrame.mvpMapPoints;
-    mTrackedKeyPointsUn = mpTracker->mCurrentFrame.mvKeysUn;
     return Tcw;
 }
 
@@ -364,7 +373,7 @@ void System::SaveKeyFrameTrajectoryTUM(const string &filename)
         KeyFrame* pKF = vpKFs[i];
 
         //原本有个原点校正，这里注释掉了
-       // pKF->SetPose(pKF->GetPose()*Two);
+       // pKF->SetTcwPose(pKF->GetPose()*Two);
 
         //如果这个关键帧是bad那么就跳过
         if(pKF->isBad())

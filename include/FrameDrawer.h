@@ -110,7 +110,7 @@ protected:
     ///当前帧特征点和参考帧特征点的匹配关系
     vector<int> mvIniMatches;
     ///当前SLAM系统的工作状态
-    int mState;
+    int mState, mnImgfps;
     double mdCurrentTimeStamp,mdLastTimeStamp;
     ///地图指针
     Map* mpMap;

@@ -457,7 +457,7 @@ int Optimizer::OptimizeFramePose(Frame *pFrame)
     g2o::VertexSE3Expmap* vSE3_recov = static_cast<g2o::VertexSE3Expmap*>(optimizer.vertex(0));
     g2o::SE3Quat SE3quat_recov = vSE3_recov->estimate();
     cv::Mat pose = Converter::toCvMat(SE3quat_recov);
-    pFrame->SetPose(pose);
+    pFrame->SetTcwPose(pose);
 
     // 并且返回内点数目
     return nInitialCorrespondences-nBad;

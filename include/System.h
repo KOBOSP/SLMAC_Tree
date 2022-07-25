@@ -85,7 +85,7 @@ public:
     cv::Mat TrackMonocular(const cv::Mat &im,           //图像
                            const double &timestamp,
                            int FrameID,
-                           cv::Mat &Trtk);    //时间戳
+                           cv::Mat Trtk);    //时间戳
 
     // This stops local mapping thread (map building) and performs only camera tracking.
     //使能定位模式，此时仅有运动追踪部分在工作，局部建图功能则不工作

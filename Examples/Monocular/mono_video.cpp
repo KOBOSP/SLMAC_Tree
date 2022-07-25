@@ -25,6 +25,34 @@ static bool IsDir(std::string filefodler) {
 }
 
 
+const double PI = 3.141592657;
+const int EARTH_RADIUS = 6378137;
+
+static inline double DegreeToRad(double degree){
+    return  PI * degree / 180.0;
+}
+static inline double HaverSin(double x){
+    double v = sin(x / 2.0);
+    return v * v;
+}
+//计算距离(单位 : m). input: LonLatAlt(degree,degree,m) output distance(m)
+static double GetLLADistance(double lon1, double lat1, double alt1, double lon2, double lat2, double alt2){
+    double radlon1 = DegreeToRad(lon1);
+    double radlat1 = DegreeToRad(lat1);
+    double radlon2 = DegreeToRad(lon2);
+    double radlat2 = DegreeToRad(lat2);
+
+    double a = fabs(radlat1 - radlat2);
+    double b = fabs(radlon1 - radlon2);
+
+    double h = HaverSin(b) + cos(lat1) * cos(lat2) * HaverSin(a);
+    double distance = 2 * EARTH_RADIUS * asin(sqrt(h));
+    return sqrt(distance*distance+(alt1-alt2)*(alt1-alt2));
+}
+
+static double GetXYZDistance(double X1, double Y1, double Z1, double X2, double Y2, double Z2){
+    return sqrt((X1-X2)*(X1-X2)+(Y1-Y2)*(Y1-Y2)+(Z1-Z2)*(Z1-Z2));
+}
 
 
 //Examples/Monocular/mono_video ./Vocabulary/ORBvoc.txt ./Examples/Monocular/mono_video.yaml ../long_time_tree.mp4 ../long_time_tree.txt
@@ -35,16 +63,14 @@ int main(int argc, char **argv) {
     int IsSeq=fSettings["Image.IsSeq"];
     double FrameInterval = fSettings["Camera.fps"];
     FrameInterval= 1 / FrameInterval;
-    cv::Mat Trtk = cv::Mat::eye(4,4,CV_32F);
+    cv::Mat Trtk;
     auto TimeSystemInit = chrono::system_clock::now();
 
     ORB_SLAM2::System orb_slam2(argv[1], argv[2], argv[4], ORB_SLAM2::System::MONOCULAR, true);
-
-    std::string sSeqPath = "/media/kobosp/POCKET3/dataset/slam数据集/RosarioDataset/sequence06/zed/*.png";
-    std::string sGpsPath = "/media/kobosp/POCKET3/dataset/slam数据集/RosarioDataset/sequence06/gps.log";
-    std::string sImageGpsPath = "/media/kobosp/POCKET3/dataset/slam数据集/RosarioDataset/sequence06/ImageGps.log";
-
     if(IsSeq==1){
+        std::string sSeqPath = "/media/kobosp/POCKET3/dataset/slam数据集/RosarioDataset/sequence06/zed/*.png";
+        std::string sGpsPath = "/media/kobosp/POCKET3/dataset/slam数据集/RosarioDataset/sequence06/gps.log";
+        std::string sImageGpsPath = "/media/kobosp/POCKET3/dataset/slam数据集/RosarioDataset/sequence06/ImageGps.log";
         std::vector<cv::String> vsImageFile;
         cv::glob(sSeqPath, vsImageFile);
         cv::Mat frame;
@@ -81,32 +107,28 @@ int main(int argc, char **argv) {
         //            frame = cv::imread(*iter);
     }
     else if(IsSeq==2) {
-        int nSVs, FrameID=1;
-        double dGpsTimeStamp, dImageTimeStamp, dLat, dLon, dHgeo;
-        char stemp[20];
-        FILE * fpr= fopen (sImageGpsPath.c_str(), "r");
-        while(fscanf(fpr, "%lf %lf %lf %lf %lf %d\n", &dImageTimeStamp, &dGpsTimeStamp, &dLon, &dLat, &dHgeo, &nSVs)!=-1) {
-            sprintf(stemp, "%016.06lf", dImageTimeStamp);
-            string sImagePath = sSeqPath.substr(0, sSeqPath.length() - 5) + "left_" + stemp + ".png";
-            printf("%s\r",sImagePath.c_str());
-            cv::Mat frame = cv::imread(sImagePath);
+        ///home/kobosp/SLAM_YOLO/ORB_SLAM2_v5.2_Optical_Flow/Vocabulary/ORBvoc.txt /home/kobosp/SLAM_YOLO/ORB_SLAM2_v5.2_Optical_Flow/Examples/Monocular/mono_video.yaml /media/kobosp/POCKET5/ScienceIsolandForest98/ /home/kobosp/SLAM_YOLO/empty.txt
+        std::string sImageGpsPath = argv[3];
+//        std::string sImageGpsPath = "/media/kobosp/POCKET5/ScienceIsolandForest/";
+        int FrameID=1;
+        char stemp[10];
+        double dLat, dLon, dAlt;
+        FILE * fpr= fopen ((sImageGpsPath+"AllFigLLA.txt").c_str(), "r");
+        printf("%s\n",(sImageGpsPath+"Images/"+stemp).c_str());
+        while(fscanf(fpr, "%s %lf %lf %lf\n", stemp, &dLon, &dLat, &dAlt)!=-1) {
+            printf("%s\n",(sImageGpsPath+"Images/"+stemp).c_str());
+            cv::Mat frame = cv::imread((sImageGpsPath+"Images/"+stemp).c_str());
             cv::Mat FrameResized;
             cv::resize(frame, FrameResized, cv::Size(frame_width, frame_height));
-
-            double* Trtkptr = Trtk.ptr<double>(0);
-            Trtkptr[0]=dLon;
-            Trtkptr = Trtk.ptr<double>(1);
-            Trtkptr[0]=dLat;
-            Trtkptr = Trtk.ptr<double>(2);
-            Trtkptr[0]=dHgeo;
-            // 由Rcw和tcw构造Tcw,并赋值给mTcw，mTcw为世界坐标系到相机坐标系的变换矩阵
-//            Rcw.copyTo(Tcw.rowRange(0,3).colRange(0,3));
-//            tcw.copyTo(Tcw.rowRange(0,3).col(3));
+            Trtk = cv::Mat(3,1,CV_32F);
+            Trtk.at<float>(0)=(dLon/360.0)*2.0*PI*EARTH_RADIUS*cos(DegreeToRad(dLat));
+            Trtk.at<float>(1)=(dLat/360.0)*2.0*PI*EARTH_RADIUS;
+            Trtk.at<float>(2)=dAlt;
             orb_slam2.TrackMonocular(FrameResized, FrameInterval * FrameID, FrameID++, Trtk);
-
         }
     }
     else if(IsSeq==0){
+        ///home/kobosp/SLAM_YOLO/ORB_SLAM2_v5.2_Optical_Flow/Vocabulary/ORBvoc.txt /home/kobosp/SLAM_YOLO/ORB_SLAM2_v5.2_Optical_Flow/Examples/Monocular/mono_video.yaml /home/kobosp/SLAM_YOLO/5m20s740416p10fps.mp4 /home/kobosp/SLAM_YOLO/5m20s740416p10fps.txt
         cv::VideoCapture cap(argv[3]);    // change to 1 if you want to use USB camera.
         unsigned long FrameID=0;
         while (1) {

@@ -114,5 +114,5 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/Examples/Monocular)
 
 add_executable(mono_video 
 Examples/Monocular/mono_video.cpp)
-target_link_libraries(mono_video ${PROJECT_NAME})
+target_link_libraries(mono_video ${OpenCV_LIBS} ${PROJECT_NAME})
 

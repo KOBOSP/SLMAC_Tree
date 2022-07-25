@@ -184,7 +184,8 @@ void FrameDrawer::DrawTextInfo(cv::Mat &im, int nState, cv::Mat &imText)
         int nKFs = mpMap->GetKeyFramesNumInMap();
         int nMPs = mpMap->GetMapPointsNumInMap();
         int nObs = mpMap->GetObcjectsNumInMap();
-        s << "fps:"<< int(1/(mdCurrentTimeStamp-mdLastTimeStamp)) <<",KFs:" << nKFs << ",MPs:" << nMPs <<",Obs:" << nObs
+        s << "Imgfps:"<< mnImgfps << ",KFfps:"<< int(1/(mdCurrentTimeStamp-mdLastTimeStamp))
+        <<",KFs:" << nKFs << ",MPs:" << nMPs <<",Obs:" << nObs
         << ",MapT:" << mnTrackedMap << ",VOT:" << mnTrackedVO << ",TarT:" << mnTrackedTarget;
     }
     else if(nState==Tracking::LOST){
@@ -229,7 +230,7 @@ void FrameDrawer::UpdateImgKPMPState(Tracking *pTracker)
 {
     unique_lock<mutex> lock(mMutex);
     //拷贝跟踪线程的图像
-    pTracker->mImGray.copyTo(mIm);
+    pTracker->mImgGray.copyTo(mIm);
     //拷贝跟踪线程的特征点
     mvCurrentKeys=pTracker->mCurrentFrame.mvKeys;
     mbMotionMethodTrackOK=pTracker->mbMotionMethodTrackOK;
@@ -263,6 +264,7 @@ void FrameDrawer::UpdateImgKPMPState(Tracking *pTracker)
         }
     }
     mdLastTimeStamp=mdCurrentTimeStamp;
+    mnImgfps=pTracker->mnImgfps;
     mdCurrentTimeStamp=pTracker->mCurrentFrame.mTimeStamp;
     //更新追踪线程的跟踪状态
     mState=static_cast<int>(pTracker->mLastProcessedState);

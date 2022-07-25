@@ -79,6 +79,7 @@ Tracking::Tracking(
         mSensor(sensor),
         mbOnlyTracking(false),                              //处于SLAM模式
         mbBadVO(false),                                        //当处于纯跟踪模式的时候，这个变量表示了当前跟踪状态的好坏
+        mbLastIsFrame(true),
         mpORBVocabulary(pVoc),
         mpKeyFrameDB(pKFDB),
         mpInitializer(static_cast<Initializer*>(NULL)),     //暂时给地图初始化器设置为空指针
@@ -100,6 +101,7 @@ Tracking::Tracking(
     int frame_height=fSettings["Camera.height"];
     int image_width=fSettings["Image.width"];
     int image_height=fSettings["Image.height"];
+    mnImageIsSeq = fSettings["Image.IsSeq"];
     //     |fx  0   cx|
     // K = |0   fy  cy|
     //     |0   0   1 |
@@ -149,10 +151,13 @@ Tracking::Tracking(
     cout << "- frame_height: " << frame_height << endl;
     cout << "- image_width: " << image_width << endl;
     cout << "- image_height: " << image_height << endl;
-
     // 1:RGB 0:BGR
-    int nRGB = fSettings["Camera.RGB"];
-    mbRGB = nRGB;
+    int ntmp = fSettings["Camera.RGB"];
+    mbRGB = ntmp;
+    ntmp = fSettings["Track.UseLKOpticalFlow"];
+    mbUseLKOpticalFlow = ntmp;
+    cout << "- mbUseLKOpticalFlow: " << mbUseLKOpticalFlow << endl;
+    cout << "- mnImageIsSeq: " << mnImageIsSeq << endl;
 
     if(mbRGB)
         cout << "- color order: RGB (ignored if grayscale)" << endl;
@@ -221,6 +226,99 @@ Tracking::Tracking(
     cout << "- ActualMaxFrameID: " << tmpFrameID << endl;
 }
 
+
+
+bool Tracking::TrackWithOpticalFlow(Frame &LastFrame, cv::Mat K, cv::Mat mDistCoef, cv::Mat &mTcw, int &mnMatchesInliers){
+    //use Optical or no, dont use: return false
+    vector<cv::Point2f> vKPInCurrentImg;
+    int ObsTh = 3;
+    /**上一帧是关键帧的情况**/
+    printf("mbLastIsFrame:%d\n", mbLastIsFrame);
+    if(mbLastIsFrame){
+        mvKPInLastFrame.clear();
+        mvKPInLastFrametmp.clear();
+        vMPInLastFrame.clear();
+        mLastImgGray = mImgGray;
+        for(int i=0; i < LastFrame.mvpMapPoints.size(); i++){
+            if(LastFrame.mvpMapPoints[i] && LastFrame.mvpMapPoints[i]->GetObservations() > ObsTh){
+                mvKPInLastFrame.push_back(LastFrame.mvKeysUn[i].pt);
+                mvKPInLastFrametmp.push_back(LastFrame.mvKeysUn[i].pt);
+                cv::Mat temp = LastFrame.mvpMapPoints[i]->GetWorldPos();
+                vMPInLastFrame.push_back(cv::Point3f(temp.at<float>(0),temp.at<float>(1),temp.at<float>(2)));
+            }
+        }
+        mTcw = LastFrame.mTcw;
+        mbLastIsFrame = false;
+        return true;
+    }
+    printf("mvKPInLastFrametmp.size()<mnGoodLMVOThreshold:%d<%d\n",mvKPInLastFrametmp.size(), mnGoodLMVOThreshold);
+    if(mvKPInLastFrametmp.size()<mnGoodLMVOThreshold){
+        return false;
+    }
+
+    mvKPInLastFrametmp.clear();
+    mvKPInLastFrametmp.insert(mvKPInLastFrametmp.begin(),mvKPInLastFrame.begin(),mvKPInLastFrame.end());
+
+    /**需要用到的数据*/
+    vector<unsigned char> vnStatus;//判断该点是否跟踪失败
+    vector<float> vfError;
+    cv::calcOpticalFlowPyrLK(mLastImgGray, mImgGray, mvKPInLastFrametmp, vKPInCurrentImg, vnStatus, vfError, cv::Size(10,10),10);//计算光流
+
+    /** 把跟丢的点删掉**/
+    int tmpi=0;
+    for (vector<cv::Point2f>::iterator iter=mvKPInLastFrame.begin(); iter != mvKPInLastFrame.end(); tmpi++){
+        if (vnStatus[tmpi] == 0 ){
+            iter = mvKPInLastFrame.erase(iter);
+            continue;
+        }
+        else{
+            iter++;
+        }
+    }
+    tmpi=0;
+    for ( vector<cv::Point3f>::iterator iter=vMPInLastFrame.begin(); iter != vMPInLastFrame.end(); tmpi++){//erase the match mappoint while the keypoint is erased
+        if (vnStatus[tmpi] == 0 ){
+            iter = vMPInLastFrame.erase(iter);
+            continue;
+        }
+        else{
+            iter++;
+        }
+    }
+    /**使用PnPRansac计算位姿*/
+    vector<cv::Mat> v3DPoints;
+    cv::Mat RVector,TVector,RMatrix;
+    vector<int> RansacInlier;
+    cout << "pointNUM" << vMPInLastFrame.size() << endl;
+    if(vMPInLastFrame.size() > mnGoodLMVOThreshold && mvKPInLastFrame.size() > mnGoodLMVOThreshold){
+        cv::solvePnPRansac(vMPInLastFrame, mvKPInLastFrame, K, mDistCoef , RVector, TVector, false, 50, 3, 0.98, RansacInlier, cv::SOLVEPNP_ITERATIVE);
+        cv::Rodrigues(RVector, RMatrix);
+        cv::Mat_<double> RTDouble = (cv::Mat_<double>(4, 4) << RMatrix.at<double>(0, 0), RMatrix.at<double>(0, 1), RMatrix.at<double>(0, 2),TVector.at<double>(0),
+                RMatrix.at<double>(1, 0), RMatrix.at<double>(1, 1), RMatrix.at<double>(1, 2),TVector.at<double>(1),
+                RMatrix.at<double>(2, 0), RMatrix.at<double>(2, 1), RMatrix.at<double>(2, 2),TVector.at<double>(2),
+                0, 0, 0, 1);
+        RTDouble.convertTo(mTcw, CV_32FC1);
+        mnMatchesInliers = RansacInlier.size();
+        return true;
+    }
+
+    cout<<"Optical flow need more points"<<endl;
+    return false;
+//    /** 画出 mvKPInLastFrame*/
+//    cv::Mat img_show = mImgGray.clone();
+//    int point = 0;
+//    int iterOfInlier = 0;
+//    for (vector<cv::Point2f>::iterator iter=mvKPInLastFrame.begin(); iter != mvKPInLastFrame.end(); iter++ ){
+//        for(iterOfInlier =0; iterOfInlier < RansacInlier.size(); iterOfInlier++){
+//            if(point == RansacInlier[iterOfInlier]){
+//                cv::circle(img_show, (*iter), 5, cv::Scalar(0, 255, 0), 1);
+//                cv::circle(img_show, (*iter), 1, cv::Scalar(0, 255, 0), -1);
+//            }
+//        }
+//        point++;
+//    }
+}
+
 //设置局部建图器
 void Tracking::SetLocalMapper(LocalMapping *pLocalMapper)
 {
@@ -243,55 +341,76 @@ void Tracking::SetViewer(Viewer *pViewer)
  * @brief 
  * 输入左目RGB或RGBA图像，输出世界坐标系到该帧相机坐标系的变换矩阵
  * 
- * @param[in] im 单目图像
+ * @param[in] Img 单目图像
  * @param[in] timestamp 时间戳
- * @return cv::Mat 
+ * @return bool false: optical, true: ORB Frame
  * 
  * Step 1 ：将彩色图像转为灰度图像
  * Step 2 ：构造Frame
  * Step 3 ：跟踪
  */
-void Tracking::CreateMonocularFrame(const cv::Mat &im, const double &timestamp, int FrameID, cv::Mat &Trtk)
+bool Tracking::CreatORBFrameOrOpticalTrack(const cv::Mat &Img, const double &timestamp, int FrameID, cv::Mat &Trtk, cv::Mat &FAITcw)
 {
-    mImGray = im;
+
+    mImgGray = Img;
     // Step 1 ：将彩色图像转为灰度图像
     //若图片是3、4通道的，还需要转化成灰度图
-    if(mImGray.channels()==3){
+    if(mImgGray.channels() == 3){
         if(mbRGB)
-            cvtColor(mImGray,mImGray,CV_RGB2GRAY);
+            cvtColor(mImgGray, mImgGray, CV_RGB2GRAY);
         else
-            cvtColor(mImGray,mImGray,CV_BGR2GRAY);
+            cvtColor(mImgGray, mImgGray, CV_BGR2GRAY);
     }
-    else if(mImGray.channels()==4){
+    else if(mImgGray.channels() == 4){
         if(mbRGB)
-            cvtColor(mImGray,mImGray,CV_RGBA2GRAY);
+            cvtColor(mImgGray, mImgGray, CV_RGBA2GRAY);
         else
-            cvtColor(mImGray,mImGray,CV_BGRA2GRAY);
+            cvtColor(mImgGray, mImgGray, CV_BGRA2GRAY);
     }
     // Step 2 ：构造Frame
     //判断该帧是不是初始化
-    if(mState==NOT_INITIALIZED || mState==NO_IMAGES_YET) //没有成功初始化的前一个状态就是NO_IMAGES_YET
+    if(mState==NOT_INITIALIZED || mState==NO_IMAGES_YET) { //没有成功初始化的前一个状态就是NO_IMAGES_YET
         mCurrentFrame = Frame(
-            mImGray,
-            timestamp,
-            mpORBextractorInit,      //初始化ORB特征点提取器会提取2倍的指定特征点数目
-            mpORBVocabulary,
-            mK,
-            mDistCoef,
-            mThDepth,
-            mvTarsSet[FrameID],
-            Trtk);
-    else
+                mImgGray,
+                timestamp,
+                mpORBextractorInit,      //初始化ORB特征点提取器会提取2倍的指定特征点数目
+                mpORBVocabulary,
+                mK,
+                mDistCoef,
+                mThDepth,
+                mvTarsSet[FrameID],
+                Trtk);
+    }
+    else{// not the initial stage
+//        printf("mbBadVO:%d, mbUseLKOpticalFlow：%d\n",mbBadVO,mbUseLKOpticalFlow);
+        if(!mbBadVO && mbUseLKOpticalFlow){//optical success
+            auto TimeStart = chrono::system_clock::now();
+            if(TrackWithOpticalFlow(mCurrentFrame, mK, mDistCoef, FAITcw, mnMatchesInliers)){
+                mLKOFLastFToCurFTcw *= FAITcw;
+                mpFrameDrawer->UpdateImgKPMPState(this);
+                auto TimeEnd = chrono::system_clock::now();
+                printf("mnMatchesInliers:%d\n",mnMatchesInliers);
+                double TimePast = chrono::duration_cast<chrono::milliseconds>(TimeEnd - TimeStart).count() / 1000.0;
+                mnImgfps = int(1.0/TimePast);
+                return false;
+            }
+            else{//optical fail
+                mLKOFLastFToCurFTcw = cv::Mat();
+            }
+        }
         mCurrentFrame = Frame(
-            mImGray,
-            timestamp,
-            mpORBextractorLeft,     //正常运行的时的ORB特征点提取器，提取指定数目特征点
-            mpORBVocabulary,
-            mK,
-            mDistCoef,
-            mThDepth,
-            mvTarsSet[FrameID],
-            Trtk);
+                mImgGray,
+                timestamp,
+                mpORBextractorLeft,     //正常运行的时的ORB特征点提取器，提取指定数目特征点
+                mpORBVocabulary,
+                mK,
+                mDistCoef,
+                mThDepth,
+                mvTarsSet[FrameID],
+                Trtk);
+        mbLastIsFrame = true;
+    }
+    return true;
 }
 
 /*
@@ -303,7 +422,7 @@ void Tracking::CreateMonocularFrame(const cv::Mat &im, const double &timestamp, 
  * Step 2：跟踪
  * Step 3：记录位姿信息，用于轨迹复现
  */
-cv::Mat Tracking::DoTrack(){
+cv::Mat Tracking::InitialOrDoORBTrack(){
     // track包含两部分：估计运动、跟踪局部地图
     // mState为tracking的状态，包括 SYSTME_NOT_READY, NO_IMAGE_YET, NOT_INITIALIZED, OK, LOST
     // 如果图像复位过、或者第一次运行，则为NO_IMAGE_YET状态
@@ -329,33 +448,37 @@ cv::Mat Tracking::DoTrack(){
         mpFrameDrawer->UpdateImgKPMPState(this);
 
         //这个状态量在上面的初始化函数中被更新
-        if(mState!=OK)
+        if(mState!=OK){
             return cv::Mat();
+        }
     }
     else {
-        // System is initialized. DoTrack Frame.
+        // System is initialized. InitialOrDoORBTrack Frame.
         // bOK为临时变量，用于表示每个函数是否执行成功
         bool bOK;
 
         // Initial camera pose estimation using motion model or relocalization (if tracking is lost)
         // mbOnlyTracking等于false表示正常SLAM模式（定位+地图更新），mbOnlyTracking等于true表示仅定位模式
         // tracking 类构造时默认为false。在viewer中有个开关ActivateLocalizationMode，可以控制是否开启mbOnlyTracking
-        if (!mbOnlyTracking) {
-            // Local Mapping is activated. This is the normal behaviour, unless
-            // you explicitly activate the "only tracking" mode.
+        // Local Mapping is activated. This is the normal behaviour, unless
+        // you explicitly activate the "only tracking" mode.
 
-            // Step 2：跟踪进入正常SLAM模式，有地图更新
-            // 是否正常跟踪
-            if (mState == OK) {
-                // Local Mapping might have changed some MapPoints tracked in last frame
-                // Step 2.1 检查并更新上一帧被替换的MapPoints
-                // 局部建图线程则可能会对原有的地图点进行替换.在这里进行检查
-                CheckReplacedInLastFrame();
+        // Step 2：跟踪进入正常SLAM模式，有地图更新
+        // 是否正常跟踪
+        if (mState == OK) {
+            // Local Mapping might have changed some MapPoints tracked in last frame
+            // Step 2.1 检查并更新上一帧被替换的MapPoints
+            // 局部建图线程则可能会对原有的地图点进行替换.在这里进行检查
+            CheckReplacedInLastFrame();
 
-                // Step 2.2 运动模型是空的或刚完成重定位，跟踪参考关键帧；否则恒速模型跟踪
-                // 第一个条件,如果运动模型为空,说明是刚初始化开始，或者已经跟丢了
-                // 第二个条件,如果当前帧紧紧地跟着在重定位的帧的后面，我们将重定位帧来恢复位姿
-                // mnLastRelocFrameId 上一次重定位的那一帧
+            // Step 2.2 运动模型是空的或刚完成重定位，跟踪参考关键帧；否则恒速模型跟踪
+            // 第一个条件,如果运动模型为空,说明是刚初始化开始，或者已经跟丢了
+            // 第二个条件,如果当前帧紧紧地跟着在重定位的帧的后面，我们将重定位帧来恢复位姿
+            // mnLastRelocFrameId 上一次重定位的那一帧
+            if(mnImageIsSeq == 2){
+                bOK = TrackWithTrtkTranslation();
+            }
+            else{
                 if (mVelocity.empty() || mCurrentFrame.mnId < mnLastRelocFrameId + 2) {
                     // 用最近的关键帧来跟踪当前的普通帧
                     // 通过BoW的方式在参考帧中找当前帧特征点的匹配点
@@ -372,122 +495,22 @@ cv::Mat Tracking::DoTrack(){
                         bOK = TrackWithReferenceKeyFrame();
                     }
                 }
-            } else {
-                // 如果跟踪状态不成功,那么就只能重定位了
-                // BOW搜索，EPnP求解位姿
-                bOK = Relocalization();
             }
         }
-        else
-        {
-//        else{
-//            // Localization Mode: Local Mapping is deactivated
-//            // Step 2：只进行跟踪tracking，局部地图不工作
-//            if(mState==LOST){
-//                // Step 2.1 如果跟丢了，只能重定位
-//                bOK = Relocalization();
-//            }
-//            else{
-//                // mbVO是mbOnlyTracking为true时的才有的一个变量
-//                // mbVO为false表示此帧匹配了很多的MapPoints，跟踪很正常 (注意有点反直觉)
-//                // mbVO为true表明此帧匹配了很少的MapPoints，少于10个，要跪的节奏
-//                if(!mbBadVO){
-//                    // Step 2.2 如果跟踪正常，使用恒速模型 或 参考关键帧跟踪
-//                    // In last frame we tracked enough MapPoints in the map
-//                    if(!mVelocity.empty()){
-//                        bOK = TrackWithMotionModel();
-//                        // ? 为了和前面模式统一，这个地方是不是应该加上
-//                        // if(!bOK)
-//                        //    bOK = TrackWithReferenceKeyFrame();
-//                    }
-//                    else{
-//                        // 如果恒速模型不被满足,那么就只能够通过参考关键帧来定位
-//                        bOK = TrackWithReferenceKeyFrame();
-//                    }
-//                }
-//                else{
-//                    // In last frame we tracked mainly "visual odometry" points.
-//                    // We compute two camera poses, one from motion model and one doing relocalization.
-//                    // If relocalization is sucessfull we choose that solution, otherwise we retain
-//                    // the "visual odometry" solution.
-//
-//                    // mbVO为true，表明此帧匹配了很少（小于10）的地图点，要跪的节奏，既做跟踪又做重定位
-//
-//                    //MM=Motion Model,通过运动模型进行跟踪的结果
-//                    bool bOKMM = false;
-//                    //通过重定位方法来跟踪的结果
-//                    bool bOKReloc = false;
-//
-//                    //运动模型中构造的地图点
-//                    vector<MapPoint*> vpMPsMM;
-//                    //在追踪运动模型后发现的外点
-//                    vector<bool> vbOutMM;
-//                    //运动模型得到的位姿
-//                    cv::Mat TcwMM;
-//
-//                    // Step 2.3 当运动模型有效的时候,根据运动模型计算位姿
-//                    if(!mVelocity.empty()){
-//                        bOKMM = TrackWithMotionModel();
-//
-//                        // 将恒速模型跟踪结果暂存到这几个变量中，因为后面重定位会改变这些变量
-//                        vpMPsMM = mCurrentFrame.mvpMapPoints;
-//                        vbOutMM = mCurrentFrame.mvbOutlier;
-//                        TcwMM = mCurrentFrame.mTcw.clone();
-//                    }
-//
-//                    // Step 2.4 使用重定位的方法来得到当前帧的位姿
-//                    bOKReloc = Relocalization();
-//
-//                    // Step 2.5 根据前面的恒速模型、重定位结果来更新状态
-//                    if(bOKMM && !bOKReloc){
-//                        // 恒速模型成功、重定位失败，重新使用之前暂存的恒速模型结果
-//                        mCurrentFrame.SetPose(TcwMM);
-//                        mCurrentFrame.mvpMapPoints = vpMPsMM;
-//                        mCurrentFrame.mvbOutlier = vbOutMM;
-//
-//                        //? 疑似bug！这段代码是不是重复增加了观测次数？后面 TrackWithLocalMap 函数中会有这些操作
-//                        // 如果当前帧匹配的3D点很少，增加当前可视地图点的被观测次数
-//                        if(mbBadVO){
-//                            // 更新当前帧的地图点被观测次数
-//                            for(int i =0; i<mCurrentFrame.mnKeyPointNum; i++){
-//                                //如果这个特征点形成了地图点,并且也不是外点的时候
-//                                if(mCurrentFrame.mvpMapPoints[i] && !mCurrentFrame.mvbOutlier[i]){
-//                                    //增加能观测到该地图点的帧数
-//                                    mCurrentFrame.mvpMapPoints[i]->IncreaseFound();
-//                                }
-//                            }
-//                        }
-//                    }
-//                    else if(bOKReloc){
-//                        // 只要重定位成功整个跟踪过程正常进行（重定位与跟踪，更相信重定位）
-//                        mbBadVO = false;
-//                    }
-//                    //有一个成功我们就认为执行成功了
-//                    bOK = bOKReloc || bOKMM;
-//                }
-//            }
-//        }
-    }
+        else {
+            // 如果跟踪状态不成功,那么就只能重定位了
+            // BOW搜索，EPnP求解位姿
+            bOK = Relocalization();
+        }
 
         // 将最新的关键帧作为当前帧的参考关键帧
         mCurrentFrame.mpReferenceKF = mpReferenceKF;
 
-        // If we have an initial estimation of the camera pose and matching. DoTrack the local map.
+        // If we have an initial estimation of the camera pose and matching. InitialOrDoORBTrack the local map.
         // Step 3：在跟踪得到当前帧初始姿态后，现在对local map进行跟踪得到更多的匹配，并优化当前位姿
         // 前面只是跟踪一帧得到初始位姿，这里搜索局部关键帧、局部地图点，和当前帧进行投影匹配，得到更多匹配的MapPoints后进行Pose优化
-        if(!mbOnlyTracking){
-            if(bOK){
-                bOK = TrackWithLocalMap();
-            }
-        }
-        else{
-            // mbBadVO true means that there are few matches to MapPoints in the map. We cannot retrieve
-            // a local map and therefore we do not perform TrackWithLocalMap(). Once the system relocalizes
-            // the camera we will use the local map again.
-            // 重定位成功
-            if(bOK && !mbBadVO){
-                bOK = TrackWithLocalMap();
-            }
+        if(bOK){
+            bOK = TrackWithLocalMap();
         }
 
         //根据上面的操作来判断是否追踪成功
@@ -510,12 +533,16 @@ cv::Mat Tracking::DoTrack(){
                 mLastFrame.GetRotationInverse().copyTo(LastTwc.rowRange(0,3).colRange(0,3));
                 mLastFrame.GetCameraCenter().copyTo(LastTwc.rowRange(0,3).col(3));
                 // mVelocity = Tcl = Tcw * Twl,表示上一帧到当前帧的变换， 其中 Twl = LastTwc
-                mVelocity = mCurrentFrame.mTcw*LastTwc; 
+                mVelocity = mCurrentFrame.mTcw*LastTwc;
             }
             else{
                 //否则速度为空
                 mVelocity = cv::Mat();
             }
+            //update LK optic flow initial location
+            mCurrentFrame.mTcw.copyTo(mLKOFLastFToCurFTcw);
+            cout<< mCurrentFrame.mTcw <<"\n";
+
             //更新显示中的位姿
             mpMapDrawer->SetCurrentCameraPose(mCurrentFrame.mTcw);
             // Clean VO matches
@@ -529,7 +556,6 @@ cv::Mat Tracking::DoTrack(){
                     }
                 }
             }
-
 
             // Check if we need to insert a new keyframe
             // Step 8：检测并插入关键帧，对于双目或RGB-D会产生新的地图点
@@ -557,7 +583,7 @@ cv::Mat Tracking::DoTrack(){
         if(mState==LOST){
             //如果地图中的关键帧信息过少的话,直接重新进行初始化了
             if(mpMap->GetKeyFramesNumInMap() <= 5){
-                cout << "DoTrack lost soon after initialisation, reseting..." << endl;
+                cout << "InitialOrDoORBTrack lost soon after initialisation, reseting..." << endl;
                 mpSystem->Reset();
                 return cv::Mat();
             }
@@ -595,6 +621,7 @@ cv::Mat Tracking::DoTrack(){
 
 
 
+
 /*
  * @brief 单目的地图初始化
  *
@@ -609,8 +636,7 @@ cv::Mat Tracking::DoTrack(){
  * Step 6：删除那些无法进行三角化的匹配点
  * Step 7：将三角化得到的3D点包装成MapPoints
  */
-void Tracking::MonocularInitialization()
-{
+void Tracking::MonocularInitialization(){
     // Step 1 如果单目初始器还没有被创建，则创建。后面如果重新初始化时会清掉这个
     if(!mpInitializer){
         // Set Reference Frame
@@ -653,11 +679,12 @@ void Tracking::MonocularInitialization()
         // 对 mInitialFrame,mCurrentFrame 进行特征点匹配
         // mvbPrevMatched为参考帧的特征点坐标，初始化存储的是mInitialFrame中特征点坐标，匹配后存储的是匹配好的当前帧的特征点坐标
         // mvIniMatches 保存参考帧F1中特征点是否匹配上，index保存是F1对应特征点索引，值保存的是匹配好的F2特征点索引
-        int nmatches = matcher.SearchMatchPointInInitialization(
+        int nmatches = matcher.SearchMatchKPInInitialization(
                 mInitialFrame, mCurrentFrame,    //初始化时的参考帧和当前帧
                 mvbPrevMatched,                 //在初始化参考帧中提取得到的特征点
                 mvIniMatches,                   //保存匹配关系
-                100);                    //搜索窗口大小
+                mnImageIsSeq,
+                100*(1+mnImageIsSeq*2));                    //搜索窗口大小
 
         // Check if there are enough correspondences
         // Step 4 验证匹配结果，如果初始化的两帧之间的匹配点太少，重新初始化
@@ -689,13 +716,22 @@ void Tracking::MonocularInitialization()
 
             // Set Frame Poses
             // Step 7 将初始化的第一帧作为世界坐标系，因此第一帧变换矩阵为单位矩阵
-            mInitialFrame.SetPose(cv::Mat::eye(4,4,CV_32F));
+            mInitialFrame.SetTcwPose(cv::Mat::eye(4, 4, CV_32F));
             // 由Rcw和tcw构造Tcw,并赋值给mTcw，mTcw为世界坐标系到相机坐标系的变换矩阵
             cv::Mat Tcw = cv::Mat::eye(4,4,CV_32F);
             Rcw.copyTo(Tcw.rowRange(0,3).colRange(0,3));
             tcw.copyTo(Tcw.rowRange(0,3).col(3));
-            mCurrentFrame.SetPose(Tcw);
+            mCurrentFrame.SetTcwPose(Tcw);
 
+            if(mnImageIsSeq==2){
+                mTcwDivLLARadio=cv::norm(tcw)/cv::norm( mCurrentFrame.mTrtk-mInitialFrame.mTrtk);
+                cv::Mat AffineOutput, AffineInliers;
+                cout<<"\n--||----||--\n"<<(mCurrentFrame.mTrtk-mInitialFrame.mTrtk)<<(mCurrentFrame.mTcw-mInitialFrame.mTcw)<<"\n";
+                cv::estimateAffine3D((mCurrentFrame.mTrtk-mInitialFrame.mTrtk).t(), (tcw).t(), AffineOutput, AffineInliers);
+                cout<<mCurrentFrame.mTrtk<<mInitialFrame.mTrtk<<"\n"
+                <<mCurrentFrame.mTcw<<mInitialFrame.mTcw<<"\n"
+                <<AffineOutput<<"\n"<<AffineInliers<<"\n"<<mTcwDivLLARadio<<"\n";
+            }
             // Step 8 创建初始化地图点MapPoints
             // Initialize函数会得到mvIniP3D，
             // mvIniP3D是cv::Point3f类型的一个容器，是个存放3D点的临时变量，
@@ -797,7 +833,7 @@ void Tracking::CreateInitialMapMonocular()
     // Step 6 将两帧之间的变换归一化到平均深度1的尺度下
     // Scale initial baseline
     cv::Mat Tc2w = pKFcur->GetPose();
-    // x/z y/z 将z归一化到1 
+    // x/z y/z 将z归一化到1
     Tc2w.col(3).rowRange(0,3) = Tc2w.col(3).rowRange(0,3)*invMedianDepth;
     pKFcur->SetPose(Tc2w);
 
@@ -816,7 +852,7 @@ void Tracking::CreateInitialMapMonocular()
     mpLocalMapper->InsertKeyFrameInQueue(pKFini);
     mpLocalMapper->InsertKeyFrameInQueue(pKFcur);
 
-    mCurrentFrame.SetPose(pKFcur->GetPose());
+    mCurrentFrame.SetTcwPose(pKFcur->GetPose());
     mnLastKeyFrameId=mCurrentFrame.mnId;
     mpLastKeyFrame = pKFcur;
 
@@ -897,7 +933,7 @@ bool Tracking::TrackWithReferenceKeyFrame()
 
     // Step 3:将上一帧的位姿态作为当前帧位姿的初始值
     mCurrentFrame.mvpMapPoints = vpMapPointMatches;
-    mCurrentFrame.SetPose(mLastFrame.mTcw); // 用上一次的Tcw设置初值，在PoseOptimization可以收敛快一些
+    mCurrentFrame.SetTcwPose(mLastFrame.mTcw); // 用上一次的Tcw设置初值，在PoseOptimization可以收敛快一些
 
     // Step 4:通过优化3D-2D的重投影误差来获得位姿
     Optimizer::OptimizeFramePose(&mCurrentFrame);
@@ -944,55 +980,53 @@ void Tracking::UpdateLastFrame()
     // 将上一帧的世界坐标系下的位姿计算出来
     // l:last, r:reference, w:world
     // Tlw = Tlr*Trw
-    mLastFrame.SetPose(Tlr*pRef->GetPose());
+    mLastFrame.SetTcwPose(Tlr * pRef->GetPose());
     return;
 }
 
-/**
- * @brief 根据恒定速度模型用上一帧地图点来对当前帧进行跟踪
- * Step 1：更新上一帧的位姿；对于双目或RGB-D相机，还会根据深度值生成临时地图点
- * Step 2：根据上一帧特征点对应地图点进行投影匹配
- * Step 3：优化当前帧位姿
- * Step 4：剔除地图点中外点
- * @return 如果匹配数大于10，认为跟踪成功，返回true
- */
-bool Tracking::TrackWithMotionModel()
-{
+bool Tracking::TrackWithTrtkTranslation(){
     // 最小距离 < 0.9*次小距离 匹配成功，检查旋转
-    ORBmatcher matcher(0.9,true);
+    ORBmatcher matcher(0.7,true);
 
     // UpdateImgKPMPState last frame pose according to its reference keyframe
     // Create "visual odometry" points
     // Step 1：更新上一帧的位姿；对于双目或RGB-D相机，还会根据深度值生成临时地图点
     UpdateLastFrame();
 
-    // Step 2：根据之前估计的速度，用恒速模型得到当前帧的初始位姿。
-    mCurrentFrame.SetPose(mVelocity*mLastFrame.mTcw);
-    
+    cv::Mat LastTwc = cv::Mat::eye(4,4,CV_32F);
+    mLastFrame.GetRotationInverse().copyTo(LastTwc.rowRange(0,3).colRange(0,3));
+    cv::Mat Lasttwc = (mCurrentFrame.mTrtk-mInitialFrame.mTrtk)*mTcwDivLLARadio;
+    Lasttwc.copyTo(LastTwc.rowRange(0,3).col(3));
+    // mVelocity = Tcl = Tcw * Twl,表示上一帧到当前帧的变换， 其中 Twl = LastTwc
+    // Step 2：用rtk得到当前帧的初始位姿, Assuming that the rotation matrix does not change
+    mCurrentFrame.SetTcwPose(LastTwc);
+    cout<<mCurrentFrame.mTcw<< "\n";
+//    mVelocity*mLastFrame.mTcw
     // 清空当前帧的地图点
-    fill(mCurrentFrame.mvpMapPoints.begin(),mCurrentFrame.mvpMapPoints.end(),static_cast<MapPoint*>(NULL));
-
+    fill(mCurrentFrame.mvpMapPoints.begin(), mCurrentFrame.mvpMapPoints.end(), static_cast<MapPoint *>(NULL));
     // Project points seen in previous frame
     // 设置特征匹配过程中的搜索半径
     int th;
-    if(mSensor==System::MONOCULAR)
-        th=20;//单目
-
+    if (mSensor == System::MONOCULAR) {//单目
+        th = 20;
+    }
     // Step 3：用上一帧地图点进行投影匹配，如果匹配点不够，则扩大搜索半径再来一次
     int nmatches = matcher.SearchFMatchPointByProjectLastFrame(mCurrentFrame, mLastFrame, th,
                                                                mSensor == System::MONOCULAR);
-
     // If few matches, uses a wider window search
     // 如果匹配点太少，则扩大搜索半径再来一次
-    if(nmatches<mnGoodMMOrRKFVOThreshold){
-        fill(mCurrentFrame.mvpMapPoints.begin(),mCurrentFrame.mvpMapPoints.end(),static_cast<MapPoint*>(NULL));
+    if (nmatches < mnGoodMMOrRKFVOThreshold) {
+        fill(mCurrentFrame.mvpMapPoints.begin(), mCurrentFrame.mvpMapPoints.end(), static_cast<MapPoint *>(NULL));
         nmatches = matcher.SearchFMatchPointByProjectLastFrame(mCurrentFrame, mLastFrame, 2 * th,
                                                                mSensor == System::MONOCULAR); // 2*th
     }
+//    printf("nmatches<mnLossMMOrRKFVOThreshold:%d<%d\n",nmatches,mnLossMMOrRKFVOThreshold);
+    // 如果不能够获得足够的匹配点, use constant velocity
+    if(nmatches<mnLossMMOrRKFVOThreshold){
+            return false;
+    }
 
-    // 如果还是不能够获得足够的匹配点,那么就认为跟踪失败
-    if(nmatches<mnLossMMOrRKFVOThreshold)
-        return false;
+
 
     // Optimize frame pose with all matches
     // Step 4：利用3D-2D投影关系，优化当前帧位姿
@@ -1016,12 +1050,100 @@ bool Tracking::TrackWithMotionModel()
                 // 累加成功匹配到的地图点数目
                 nmatchesMap++;
         }
-    }    
+    }
 
-    if(mbOnlyTracking){
-        // 纯定位模式下：如果成功追踪的地图点非常少,那么这里的mbVO标志就会置位
-        mbBadVO = nmatchesMap < mnGoodMMOrRKFVOThreshold;
-        return nmatches>mnLossMMOrRKFVOThreshold;
+    // Step 6：匹配超过10个点就认为跟踪成功
+    mbMotionMethodTrackOK = nmatchesMap>=mnLossMMOrRKFVOThreshold;
+    return mbMotionMethodTrackOK;
+}
+
+
+/**
+ * @brief 根据恒定速度模型用上一帧地图点来对当前帧进行跟踪
+ * Step 1：更新上一帧的位姿；对于双目或RGB-D相机，还会根据深度值生成临时地图点
+ * Step 2：根据上一帧特征点对应地图点进行投影匹配
+ * Step 3：优化当前帧位姿
+ * Step 4：剔除地图点中外点
+ * @return 如果匹配数大于10，认为跟踪成功，返回true
+ */
+bool Tracking::TrackWithMotionModel()
+{
+    // 最小距离 < 0.9*次小距离 匹配成功，检查旋转
+    ORBmatcher matcher(0.8,true);
+
+    // UpdateImgKPMPState last frame pose according to its reference keyframe
+    // Create "visual odometry" points
+    // Step 1：更新上一帧的位姿；对于双目或RGB-D相机，还会根据深度值生成临时地图点
+    UpdateLastFrame();
+
+    // Step 2：根据之前估计的速度，用optical flow得到当前帧的初始位姿。
+    if(mbUseLKOpticalFlow && !mLKOFLastFToCurFTcw.empty()){
+        mCurrentFrame.SetTcwPose(mLKOFLastFToCurFTcw * mLastFrame.mTcw);
+    }
+    else{
+        mCurrentFrame.SetTcwPose(mVelocity*mLastFrame.mTcw);
+    }
+    // 清空当前帧的地图点
+    fill(mCurrentFrame.mvpMapPoints.begin(), mCurrentFrame.mvpMapPoints.end(), static_cast<MapPoint *>(NULL));
+    // Project points seen in previous frame
+    // 设置特征匹配过程中的搜索半径
+    int th;
+    if (mSensor == System::MONOCULAR) {//单目
+        th = 20;
+    }
+    // Step 3：用上一帧地图点进行投影匹配，如果匹配点不够，则扩大搜索半径再来一次
+    int nmatches = matcher.SearchFMatchPointByProjectLastFrame(mCurrentFrame, mLastFrame, th,
+                                                               mSensor == System::MONOCULAR);
+    // If few matches, uses a wider window search
+    // 如果匹配点太少，则扩大搜索半径再来一次
+    if (nmatches < mnGoodMMOrRKFVOThreshold) {
+        fill(mCurrentFrame.mvpMapPoints.begin(), mCurrentFrame.mvpMapPoints.end(), static_cast<MapPoint *>(NULL));
+        nmatches = matcher.SearchFMatchPointByProjectLastFrame(mCurrentFrame, mLastFrame, 2 * th,
+                                                               mSensor == System::MONOCULAR); // 2*th
+    }
+//    printf("nmatches<mnLossMMOrRKFVOThreshold:%d<%d\n",nmatches,mnLossMMOrRKFVOThreshold);
+    // 如果不能够获得足够的匹配点, use constant velocity
+    if(nmatches<mnLossMMOrRKFVOThreshold){
+        mCurrentFrame.SetTcwPose(mVelocity * mLastFrame.mTcw);
+        // 清空当前帧的地图点
+        fill(mCurrentFrame.mvpMapPoints.begin(), mCurrentFrame.mvpMapPoints.end(), static_cast<MapPoint *>(NULL));
+        // Step 3：用上一帧地图点进行投影匹配，如果匹配点不够，则扩大搜索半径再来一次
+        nmatches = matcher.SearchFMatchPointByProjectLastFrame(mCurrentFrame, mLastFrame, th, mSensor == System::MONOCULAR);
+        // If few matches, uses a wider window search
+        // 如果匹配点太少，则扩大搜索半径再来一次
+        if (nmatches < mnGoodMMOrRKFVOThreshold) {
+            fill(mCurrentFrame.mvpMapPoints.begin(), mCurrentFrame.mvpMapPoints.end(), static_cast<MapPoint *>(NULL));
+            nmatches = matcher.SearchFMatchPointByProjectLastFrame(mCurrentFrame, mLastFrame, 2 * th,mSensor == System::MONOCULAR); // 2*th
+        }
+        // 如果还是不能够获得足够的匹配点,那么就认为跟踪失败
+        if(nmatches<mnLossMMOrRKFVOThreshold)
+            return false;
+    }
+
+
+
+    // Optimize frame pose with all matches
+    // Step 4：利用3D-2D投影关系，优化当前帧位姿
+    Optimizer::OptimizeFramePose(&mCurrentFrame);
+
+    // Discard outliers
+    // Step 5：剔除地图点中外点
+    int nmatchesMap = 0;
+    for(int i =0; i<mCurrentFrame.mnKeyPointNum; i++){
+        if(mCurrentFrame.mvpMapPoints[i]){
+            if(mCurrentFrame.mvbOutlier[i]){
+                // 如果优化后判断某个地图点是外点，清除它的所有关系
+                MapPoint* pMP = mCurrentFrame.mvpMapPoints[i];
+                mCurrentFrame.mvpMapPoints[i]=static_cast<MapPoint*>(NULL);
+                mCurrentFrame.mvbOutlier[i]=false;
+                pMP->mbTrackInView = false;
+                pMP->mnLastFrameSeen = mCurrentFrame.mnId;
+                nmatches--;
+            }
+            else if(mCurrentFrame.mvpMapPoints[i]->GetObservations() > 0)
+                // 累加成功匹配到的地图点数目
+                nmatchesMap++;
+        }
     }
 
     // Step 6：匹配超过10个点就认为跟踪成功
@@ -1044,8 +1166,7 @@ bool Tracking::TrackWithMotionModel()
  * Step 4：更新当前帧的MapPoints被观测程度，并统计跟踪局部地图的效果
  * Step 5：决定是否跟踪成功
  */
-bool Tracking::TrackWithLocalMap()
-{
+bool Tracking::TrackWithLocalMap(){
     // We have an estimation of the camera pose and some map points tracked in the frame.
     // We retrieve the local map and try to find matches to points in the local map.
 
@@ -1071,14 +1192,9 @@ bool Tracking::TrackWithLocalMap()
                 // 找到该点的帧数mnFound 加 1
                 mCurrentFrame.mvpMapPoints[i]->IncreaseFound();
                 //查看当前是否是在纯定位过程
-                if(!mbOnlyTracking){
-                    // 如果该地图点被相机观测数目nObs大于0，匹配内点计数+1
-                    // mnObserve： 被观测到的相机数目，单目+1，双目或RGB-D则+2
-                    if(mCurrentFrame.mvpMapPoints[i]->GetObservations() > 0)
-                        mnMatchesInliers++;
-                }
-                else{
-                    // 记录当前帧跟踪到的地图点数目，用于统计跟踪效果
+                // 如果该地图点被相机观测数目nObs大于0，匹配内点计数+1
+                // mnObserve： 被观测到的相机数目，单目+1，双目或RGB-D则+2
+                if(mCurrentFrame.mvpMapPoints[i]->GetObservations() > 0){
                     mnMatchesInliers++;
                 }
             }
@@ -1115,12 +1231,7 @@ bool Tracking::TrackWithLocalMap()
  * @return true         需要
  * @return false        不需要
  */
-bool Tracking::NeedNewKeyFrame()
-{
-    // Step 1：纯VO模式下不插入关键帧
-    if(mbOnlyTracking)
-        return false;
-
+bool Tracking::NeedNewKeyFrame(){
     // If Local Mapping is freezed by a Loop Closure do not insert keyframes
     // Step 2：如果局部地图线程被闭环检测使用，则不插入关键帧
     if(mpLocalMapper->isStopped() || mpLocalMapper->stopRequested())
@@ -1468,7 +1579,7 @@ bool Tracking::Relocalization()
     mCurrentFrame.ComputeBoW();
 
     // Relocalization is performed when tracking is lost
-    // DoTrack Lost: Query KeyFrame Database for keyframe candidates for relocalisation
+    // InitialOrDoORBTrack Lost: Query KeyFrame Database for keyframe candidates for relocalisation
     // Step 2：用词袋找到与当前帧相似的候选关键帧
     vector<KeyFrame*> vpCandidateKFs = mpKeyFrameDB->DetectRelocalizationCandidates(&mCurrentFrame);
     

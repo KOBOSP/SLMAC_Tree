@@ -50,8 +50,14 @@ const int ORBmatcher::TH_HIGH = 100;
 const int ORBmatcher::TH_LOW = 50;
 const int ORBmatcher::HISTO_LENGTH = 30;
 
+
+
 // 构造函数,参数默认值为0.6,true
 ORBmatcher::ORBmatcher(float nnratio, bool checkOri): mfNNratio(nnratio), mbCheckOrientation(checkOri){
+    for(int i=0;i<HISTO_LENGTH;i++){
+        rotHist.push_back(vector<int>());
+        rotHist[i].reserve(500);
+    }
 }
 
 
@@ -91,6 +97,23 @@ bool ORBmatcher::CheckDistEpipolarLine(const cv::KeyPoint &kp1,const cv::KeyPoin
     // 金字塔最底层一个像素就占一个像素，在倒数第二层，一个像素等于最底层1.2个像素（假设金字塔尺度为1.2）
     // 3.84 是自由度为1时，服从高斯分布的一个平方项（也就是这里的误差）小于一个像素，这件事发生概率超过95%时的概率 （卡方分布）
     return dsqr < 3.84 * pKF2->mvLevelSigma2[kp2.octave];
+}
+
+//nType: 1->Fame, 2->Match, 3->MapPoint( last two is many case, so skip them)
+void ORBmatcher::CheckFrameRotationConsistency(Frame &CurrentFrame, int &nmatches){
+    int ind1=-1;
+    int ind2=-1;
+    int ind3=-1;
+    ComputeThreeMaxOrienta(ind1, ind2, ind3);
+    for(int i=0; i<HISTO_LENGTH; i++){
+        // 对于数量不是前3个的点对，剔除
+        if(i!=ind1 && i!=ind2 && i!=ind3){
+            for(size_t j=0, jend=rotHist[i].size(); j<jend; j++){
+                CurrentFrame.mvpMapPoints[rotHist[i][j]]=static_cast<MapPoint*>(NULL);
+                nmatches--;
+            }
+        }
+    }
 }
 
 
@@ -348,9 +371,8 @@ int ORBmatcher::SearchFMatchPointByProjectLastFrame(Frame &CurrentFrame, const F
 
         // Rotation Histogram (to check rotation consistency)
         // Step 1 建立旋转直方图，用于检测旋转一致性
-        vector<int> rotHist[HISTO_LENGTH];
         for(int i=0;i<HISTO_LENGTH;i++)
-            rotHist[i].reserve(500);
+            rotHist[i].clear();
 
         //! 原作者代码是 const float factor = 1.0f/HISTO_LENGTH; 是错误的，更改为下面代码
         const float factor = HISTO_LENGTH/360.0f;
@@ -465,21 +487,7 @@ int ORBmatcher::SearchFMatchPointByProjectLastFrame(Frame &CurrentFrame, const F
         //Apply rotation consistency
         //  Step 7 进行旋转一致检测，剔除不一致的匹配
         if(mbCheckOrientation){
-            int ind1=-1;
-            int ind2=-1;
-            int ind3=-1;
-
-            ComputeThreeMaxOrienta(rotHist, HISTO_LENGTH, ind1, ind2, ind3);
-
-            for(int i=0; i<HISTO_LENGTH; i++){
-                // 对于数量不是前3个的点对，剔除
-                if(i!=ind1 && i!=ind2 && i!=ind3){
-                    for(size_t j=0, jend=rotHist[i].size(); j<jend; j++){
-                        CurrentFrame.mvpMapPoints[rotHist[i][j]]=static_cast<MapPoint*>(NULL);
-                        nmatches--;
-                    }
-                }
-            }
+            CheckFrameRotationConsistency(CurrentFrame, nmatches);
         }
         return nmatches;
     }
@@ -504,23 +512,18 @@ int ORBmatcher::SearchFMatchPointByProjectKeyFrame(Frame &CurrentFrame, KeyFrame
 
         // Rotation Histogram (to check rotation consistency)
         // Step 1 建立旋转直方图，用于检测旋转一致性
-        vector<int> rotHist[HISTO_LENGTH];
         for(int i=0;i<HISTO_LENGTH;i++)
-            rotHist[i].reserve(500);
+            rotHist[i].clear();
         const float factor = HISTO_LENGTH/360.0f;
 
         const vector<MapPoint*> vpMPs = pKF->GetAllMapPointVectorInKF();
 
         // Step 2 遍历关键帧中的每个地图点，通过相机投影模型，得到投影到当前帧的像素坐标
-        for(size_t i=0, iend=vpMPs.size(); i<iend; i++)
-        {
+        for(size_t i=0, iend=vpMPs.size(); i<iend; i++){
             MapPoint* pMP = vpMPs[i];
-
-            if(pMP)
-            {
+            if(pMP){
                 // 地图点存在 并且 不在已有地图点集合里
-                if(!pMP->GetbBad() && !sAlreadyFound.count(pMP))
-                {
+                if(!pMP->GetbBad() && !sAlreadyFound.count(pMP)){
                     //Project
                     cv::Mat x3Dw = pMP->GetWorldPos();
                     cv::Mat x3Dc = Rcw*x3Dw+tcw;
@@ -572,23 +575,18 @@ int ORBmatcher::SearchFMatchPointByProjectKeyFrame(Frame &CurrentFrame, KeyFrame
                             continue;
 
                         const cv::Mat &d = CurrentFrame.mDescriptors.row(i2);
-
                         const int dist = ComputeDescriptorDistance(dMP, d);
-
-                        if(dist<bestDist)
-                        {
+                        if(dist<bestDist){
                             bestDist=dist;
                             bestIdx2=i2;
                         }
                     }
 
-                    if(bestDist<=ORBdist)
-                    {
+                    if(bestDist<=ORBdist){
                         CurrentFrame.mvpMapPoints[bestIdx2]=pMP;
                         nmatches++;
                         // Step 5 计算匹配点旋转角度差所在的直方图
-                        if(mbCheckOrientation)
-                        {
+                        if(mbCheckOrientation){
                             float rot = pKF->mvKeysUn[i].angle-CurrentFrame.mvKeysUn[bestIdx2].angle;
                             if(rot<0.0)
                                 rot+=360.0f;
@@ -603,29 +601,10 @@ int ORBmatcher::SearchFMatchPointByProjectKeyFrame(Frame &CurrentFrame, KeyFrame
                 }
             }
         }
-
         //  Step 6 进行旋转一致检测，剔除不一致的匹配
-        if(mbCheckOrientation)
-        {
-            int ind1=-1;
-            int ind2=-1;
-            int ind3=-1;
-
-            ComputeThreeMaxOrienta(rotHist, HISTO_LENGTH, ind1, ind2, ind3);
-
-            for(int i=0; i<HISTO_LENGTH; i++)
-            {
-                if(i!=ind1 && i!=ind2 && i!=ind3)
-                {
-                    for(size_t j=0, jend=rotHist[i].size(); j<jend; j++)
-                    {
-                        CurrentFrame.mvpMapPoints[rotHist[i][j]]=NULL;
-                        nmatches--;
-                    }
-                }
-            }
+        if(mbCheckOrientation){
+            CheckFrameRotationConsistency(CurrentFrame, nmatches);
         }
-
         return nmatches;
     }
 
@@ -643,20 +622,21 @@ int ORBmatcher::SearchFMatchPointByProjectKeyFrame(Frame &CurrentFrame, KeyFrame
  * @param[in] F2                        当前帧
  * @param[in & out] vbPrevMatched       本来存储的是参考帧的所有特征点坐标，该函数更新为匹配好的当前帧的特征点坐标
  * @param[in & out] vnMatches12         保存参考帧F1中特征点是否匹配上，index保存是F1对应特征点索引，值保存的是匹配好的F2特征点索引
+ * @param[in] nImageIsSeq               Frame with RTK or GPS 0:no 1:RTK 2:GPS
  * @param[in] windowSize                搜索窗口
  * @return int                          返回成功匹配的特征点数目
  */
-int ORBmatcher::SearchMatchPointInInitialization(Frame &F1, Frame &F2, vector<cv::Point2f> &vbPrevMatched, vector<int> &vnMatches12, int windowSize)
+int ORBmatcher::SearchMatchKPInInitialization(Frame &F1, Frame &F2, vector<cv::Point2f> &vbPrevMatched, vector<int> &vnMatches12, int nImageIsSeq, int windowSize)
 {
     int nmatches=0;
     // F1中特征点和F2中匹配关系，注意是按照F1特征点数目分配空间
     vnMatches12 = vector<int>(F1.mvKeysUn.size(),-1);
 
     // Step 1 构建旋转直方图，HISTO_LENGTH = 30
-    vector<int> rotHist[HISTO_LENGTH];
     for(int i=0;i<HISTO_LENGTH;i++)
     // 每个bin里预分配500个，因为使用的是vector不够的话可以自动扩展容量
-        rotHist[i].reserve(500);   
+        rotHist[i].clear();
+
 
     const float factor = HISTO_LENGTH/360.0f;
 
@@ -666,14 +646,12 @@ int ORBmatcher::SearchMatchPointInInitialization(Frame &F1, Frame &F2, vector<cv
     vector<int> vnMatches21(F2.mvKeysUn.size(),-1);
 
     // 遍历帧1中的所有特征点
-    for(size_t i1=0, iend1=F1.mvKeysUn.size(); i1<iend1; i1++)
-    {
+    for(size_t i1=0, iend1=F1.mvKeysUn.size(); i1<iend1; i1++){
         cv::KeyPoint kp1 = F1.mvKeysUn[i1];
         int level1 = kp1.octave;
         // 只使用原始图像上提取的特征点
         if(level1>0 || kp1.class_id>0)
             continue;
-
         // Step 2 在半径窗口内搜索当前帧F2中所有的候选匹配特征点 
         // vbPrevMatched 输入的是参考帧 F1的特征点
         // windowSize = 100，输入最大最小金字塔层级 均为0
@@ -754,7 +732,7 @@ int ORBmatcher::SearchMatchPointInInitialization(Frame &F1, Frame &F2, vector<cv
         int ind2=-1;
         int ind3=-1;
         // 筛选出在旋转角度差落在在直方图区间内数量最多的前三个bin的索引
-        ComputeThreeMaxOrienta(rotHist, HISTO_LENGTH, ind1, ind2, ind3);
+        ComputeThreeMaxOrienta(ind1, ind2, ind3);
 
         for(int i=0; i<HISTO_LENGTH; i++){
             if(i==ind1 || i==ind2 || i==ind3)
@@ -803,9 +781,9 @@ int ORBmatcher::SearchFMatchPointByKFBoW(KeyFrame* pKF, Frame &F, vector<MapPoin
         const DBoW2::FeatureVector &vFeatVecKF = pKF->mFeatVec;
         int nmatches=0;
         // 特征点角度旋转差统计用的直方图
-        vector<int> rotHist[HISTO_LENGTH];
         for(int i=0;i<HISTO_LENGTH;i++)
-            rotHist[i].reserve(500);
+            rotHist[i].clear();
+
 
         // 将0~360的数转换到0~HISTO_LENGTH的系数
         // !原作者代码是 const float factor = 1.0f/HISTO_LENGTH; 是错误的，更改为下面代码
@@ -919,7 +897,7 @@ int ORBmatcher::SearchFMatchPointByKFBoW(KeyFrame* pKF, Frame &F, vector<MapPoin
             int ind2=-1;
             int ind3=-1;
             // 筛选出在旋转角度差落在在直方图区间内数量最多的前三个bin的索引
-            ComputeThreeMaxOrienta(rotHist, HISTO_LENGTH, ind1, ind2, ind3);
+            ComputeThreeMaxOrienta(ind1, ind2, ind3);
             for(int i=0; i<HISTO_LENGTH; i++){
                 // 如果特征点的旋转角度变化量属于这三个组，则保留
                 if(i==ind1 || i==ind2 || i==ind3)
@@ -961,9 +939,9 @@ int ORBmatcher::SearchKFMatchPointByKFBoW(KeyFrame *pKF1, KeyFrame *pKF2, vector
     vector<bool> vbMatched2(vpMapPoints2.size(),false);
 
     // Step 2 构建旋转直方图，HISTO_LENGTH = 30
-    vector<int> rotHist[HISTO_LENGTH];
     for(int i=0;i<HISTO_LENGTH;i++)
-        rotHist[i].reserve(500);
+        rotHist[i].clear();
+
     const float factor = HISTO_LENGTH/360.0f;
     int nmatches = 0;
 
@@ -1050,7 +1028,7 @@ int ORBmatcher::SearchKFMatchPointByKFBoW(KeyFrame *pKF1, KeyFrame *pKF2, vector
         int ind1=-1;
         int ind2=-1;
         int ind3=-1;
-        ComputeThreeMaxOrienta(rotHist, HISTO_LENGTH, ind1, ind2, ind3);
+        ComputeThreeMaxOrienta(ind1, ind2, ind3);
         for(int i=0; i<HISTO_LENGTH; i++){
             if(i==ind1 || i==ind2 || i==ind3)
                 continue;
@@ -1116,9 +1094,9 @@ int ORBmatcher::SearchNewKFMatchPointByKFF12(KeyFrame *pKF1, KeyFrame *pKF2, cv:
     vector<bool> vbMatched2(pKF2->mnKeyPointNum, false);
     vector<int> vMatches12(pKF1->mnKeyPointNum, -1);
     // 用于统计匹配点对旋转差的直方图
-    vector<int> rotHist[HISTO_LENGTH];
     for(int i=0;i<HISTO_LENGTH;i++)
-        rotHist[i].reserve(500);
+        rotHist[i].clear();
+
 
     const float factor = HISTO_LENGTH/360.0f;
 
@@ -1211,7 +1189,7 @@ int ORBmatcher::SearchNewKFMatchPointByKFF12(KeyFrame *pKF1, KeyFrame *pKF2, cv:
                         int bin = round(rot*factor);
                         if(bin==HISTO_LENGTH)
                             bin=0;
-                        assert(bin>=0 && bin<HISTO_LENGTH);   
+                        assert(bin>=0 && bin<HISTO_LENGTH);
                         rotHist[bin].emplace_back(idx1);
                     }
                 }
@@ -1233,7 +1211,7 @@ int ORBmatcher::SearchNewKFMatchPointByKFF12(KeyFrame *pKF1, KeyFrame *pKF2, cv:
         int ind2=-1;
         int ind3=-1;
 
-        ComputeThreeMaxOrienta(rotHist, HISTO_LENGTH, ind1, ind2, ind3);
+        ComputeThreeMaxOrienta(ind1, ind2, ind3);
 
         for(int i=0; i<HISTO_LENGTH; i++){
             if(i==ind1 || i==ind2 || i==ind3)
@@ -1943,20 +1921,20 @@ int ORBmatcher::FuseRedundantDifferIdObjectInLocalMap(KeyFrame *pKF, const vecto
 /**
  * @brief 筛选出在旋转角度差落在在直方图区间内数量最多的前三个bin的索引
  * 
- * @param[in] histo         匹配特征点对旋转方向差直方图
+ * @param[in] rotHist         匹配特征点对旋转方向差直方图
  * @param[in] L             直方图尺寸
  * @param[in & out] ind1          bin值第一大对应的索引
  * @param[in & out] ind2          bin值第二大对应的索引
  * @param[in & out] ind3          bin值第三大对应的索引
  */
-void ORBmatcher::ComputeThreeMaxOrienta(vector<int>* histo, const int L, int &ind1, int &ind2, int &ind3)
+void ORBmatcher::ComputeThreeMaxOrienta(int &ind1, int &ind2, int &ind3)
 {
     int max1=0;
     int max2=0;
     int max3=0;
 
-    for(int i=0; i<L; i++){
-        const int s = histo[i].size();
+    for(int i=0; i<HISTO_LENGTH; i++){
+        const int s = rotHist[i].size();
         if(s>max1){
             max3=max2;
             max2=max1;

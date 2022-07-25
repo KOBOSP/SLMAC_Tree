@@ -166,7 +166,7 @@ public:
      * @param[in] windowSize                搜索窗口
      * @return int                          返回成功匹配的特征点数目
      */
-    int SearchMatchPointInInitialization(Frame &F1, Frame &F2, std::vector<cv::Point2f> &vbPrevMatched, std::vector<int> &vnMatches12, int windowSize=10);
+    int SearchMatchKPInInitialization(Frame &F1, Frame &F2, std::vector<cv::Point2f> &vbPrevMatched, std::vector<int> &vnMatches12, int nImageIsSeq, int windowSize=10);
 
     // Matching to triangulate new MapPoints. Check Epipolar Constraint.
     /**
@@ -228,6 +228,7 @@ public:
     static const int TH_LOW;            ///< 判断描述子距离时比较低的那个阈值,主要用于基于词袋模型加速的匹配过程，可能是感觉使用词袋模型的时候对匹配的效果要更加严格一些
     static const int TH_HIGH;           ///< 判断描述子距离时比较高的那个阈值,用于计算投影后能够匹配上的特征点的数目；如果匹配的函数中没有提供阈值的话，默认就使用这个阈值
     static const int HISTO_LENGTH;      ///< 判断特征点旋转用直方图的长度
+    vector<vector<int> >rotHist;
 
 
 protected:
@@ -242,18 +243,19 @@ protected:
      * @return false 
      */
     bool CheckDistEpipolarLine(const cv::KeyPoint &kp1, const cv::KeyPoint &kp2, const cv::Mat &F12, const KeyFrame *pKF);
+    void CheckFrameRotationConsistency(Frame &CurrentFrame, int &nmatches);
 
 
     /**
      * @brief 筛选出在旋转角度差落在在直方图区间内数量最多的前三个bin的索引
      * 
-     * @param[in] histo         匹配特征点对旋转方向差直方图
+     * @param[in] rotHist         匹配特征点对旋转方向差直方图
      * @param[in] L             直方图尺寸
      * @param[in & out] ind1          bin值第一大对应的索引
      * @param[in & out] ind2          bin值第二大对应的索引
      * @param[in & out] ind3          bin值第三大对应的索引
      */
-    void ComputeThreeMaxOrienta(std::vector<int>* histo, const int L, int &ind1, int &ind2, int &ind3);
+    void ComputeThreeMaxOrienta(int &ind1, int &ind2, int &ind3);
 
     float mfNNratio;            ///< 最优评分和次优评分的比例
     bool mbCheckOrientation;    ///< 是否检查特征点的方向

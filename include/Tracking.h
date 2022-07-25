@@ -84,22 +84,23 @@ public:
     Tracking(System* pSys, ORBVocabulary* pVoc, FrameDrawer* pFrameDrawer, MapDrawer* pMapDrawer, Map* pMap,
              KeyFrameDatabase* pKFDB, const string &strSettingPath, const string &strFrameTargetFile, const int sensor);
 
-    // Preprocess the input and call DoTrack(). Extract features and performs stereo matching.
+    // Preprocess the input and call InitialOrDoORBTrack(). Extract features and performs stereo matching.
     // 下面的函数都是对不同的传感器输入的图像进行处理(转换成为灰度图像),并且调用Tracking线程
 
     /**
      * @brief 处理单目输入图像
      * 
-     * @param[in] im            图像
+     * @param[in] Img            图像
      * @param[in] timestamp     时间戳
      * @return cv::Mat          世界坐标系到该帧相机坐标系的变换矩阵
      */
-    void CreateMonocularFrame(const cv::Mat &im, const double &timestamp, int FrameID, cv::Mat &Trtk);
+    bool CreatORBFrameOrOpticalTrack(const cv::Mat &Img, const double &timestamp, int FrameID, cv::Mat &Trtk, cv::Mat &FAITcw);
 
+    bool TrackWithOpticalFlow(Frame &LastFrame, cv::Mat K, cv::Mat mDistCoef, cv::Mat &mTcw, int &mnMatchesInliers);
 
-    // Main tracking function. It is independent of the input sensor.
+        // Main tracking function. It is independent of the input sensor.
     /** @brief 主追踪进程 */
-    cv::Mat DoTrack();
+    cv::Mat InitialOrDoORBTrack();
     /**
      * @brief 设置局部地图句柄
      * 
@@ -146,15 +147,16 @@ public:
     eTrackingState mLastProcessedState;
     bool mbMotionMethodTrackOK;
     // Input sensor:MONOCULAR, STEREO, RGBD
-    ///传感器类型
     int mSensor;
-
     // Current Frame
     ///追踪线程中有一个当前帧
     Frame mCurrentFrame;
     ///> 还有当前帧的灰度图像 //? 提问,那么在双目输入和在RGBD输入的时候呢? 
     ///>                        在双目输入和在RGBD输入时，为左侧图像的灰度图
-    cv::Mat mImGray;
+    cv::Mat mImgGray;
+    cv::Mat mLastImgGray;
+    int mnImgfps;
+    double mTcwDivLLARadio;
 
     // Initialization Variables (Monocular)
     // 初始化时前两帧相关变量
@@ -234,6 +236,7 @@ protected:
      * @return 如果匹配数大于10，返回true
      * @see V-B Initial Pose Estimation From Previous Frame
      */
+    bool TrackWithTrtkTranslation();
     bool TrackWithMotionModel();
 
     /** @brief 重定位模块 */
@@ -300,6 +303,8 @@ protected:
     ///当进行纯定位时才会有的一个变量,为false表示该帧匹配了很多的地图点,跟踪是正常的;如果少于10个则为true,表示快要完蛋了
     ///and has a possible way: track local map point < 50 in SLAM mode
     bool mbBadVO;
+    bool mbUseLKOpticalFlow;
+    int mnImageIsSeq;
     int mnGoodMMOrRKFVOThreshold;
     int mnLossMMOrRKFVOThreshold;
     int mnGoodLMVOThreshold;
@@ -385,6 +390,11 @@ protected:
     KeyFrame* mpLastKeyFrame;
     // 上一帧
     Frame mLastFrame;
+    cv::Mat mLKOFLastFToCurFTcw;
+    bool mbLastIsFrame;
+    vector<cv::Point2f> mvKPInLastFrame;
+    vector<cv::Point2f> mvKPInLastFrametmp;
+    vector<cv::Point3f> vMPInLastFrame;
     // 上一个关键帧的ID
     unsigned int mnLastKeyFrameId;
     // 上一次重定位的那一帧的ID

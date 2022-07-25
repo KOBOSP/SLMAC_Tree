@@ -5,15 +5,15 @@
 #--------------------------------------------------------------------------------------------
 
 # Camera calibration and distortion parameters (OpenCV) 
-#Camera.fx: 238.0
-#Camera.fy: 238.0
-#Camera.cx: 206.0
-#Camera.cy: 148.0
+Camera.fx: 238.0
+Camera.fy: 238.0
+Camera.cx: 206.0
+Camera.cy: 148.0
 
-Camera.fx: 348.522264
-Camera.fy: 348.449870
-Camera.cx: 344.483596
-Camera.cy: 188.808062
+#Camera.fx: 348.522264
+#Camera.fy: 348.449870
+#Camera.cx: 344.483596
+#Camera.cy: 188.808062
 
 Camera.k1: 0
 Camera.k2: 0
@@ -31,11 +31,11 @@ Camera.k3: 0
 # image is input
 Image.width: 740
 Image.height: 416
-Image.IsSeq: 0
+Image.IsSeq: 2
 #camera is process frame
 Camera.width: 740
 Camera.height: 416
-Camera.fps: 6
+Camera.fps: 10
  
 # Color order of the images (0: BGR, 1: RGB. It is ignored if images are grayscale)
 Camera.RGB: 0
@@ -45,7 +45,7 @@ Camera.RGB: 0
 #--------------------------------------------------------------------------------------------
  
 # ORB Extractor: Number of features per image
-ORBextractor.nFeatures: 1000
+ORBextractor.nFeatures: 5000
  
 # ORB Extractor: Scale factor between levels in the scale pyramid     
 ORBextractor.scaleFactor: 1.2
@@ -65,6 +65,7 @@ Track.GoodLMVOThreshold: 40
 Track.LossLMVOThreshold: 20
 Track.MaxFrameID: 5000
 Track.MaxObjectID: 5000
+Track.UseLKOpticalFlow: 0
 LocalMap.CullKFRedundantMPRate: 60
 LoopClose.CovisibilityConsistencyTh: 3
 #int KeyFrame::mnMinConnectedWeight=15;

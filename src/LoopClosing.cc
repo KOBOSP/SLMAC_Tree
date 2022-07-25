@@ -116,14 +116,14 @@ void LoopClosing::Run()
                 }
                 if(mpCurrentKF){
                     if(!mpCurrentKF->isBad()){
-                        //FuseSameIdObjectInGlobalMap();
+                        FuseSameIdObjectInGlobalMap();
                         LinkObjectIdByProjectGlobalMapToCurrentKF();
                     }
                 }
             }
             else{
                 LinkObjectIdByProjectGlobalMapToAllKF();
-                //FuseSameIdObjectInGlobalMap();
+                FuseSameIdObjectInGlobalMap();
             }
             if(msLinkedObjectID.size()>mnFuseMPByObjectSceneTh){//begin small loop
                 if(FuseMapPointsBySeeSameObjectId()>mnDetectLoopByFusedMPNumTh){//fused map point in just now fused KF and judge whether there is a loop by fused MapPoint number

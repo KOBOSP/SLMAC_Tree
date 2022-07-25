@@ -119,7 +119,7 @@ public:
      * 
      * @param[in] Tcw 从世界坐标系到当前帧相机位姿的变换矩阵
      */
-    void SetPose(cv::Mat Tcw);
+    void SetTcwPose(cv::Mat Tcw);
 
     // Computes rotation, translation and camera center matrices from the camera pose.
     /**

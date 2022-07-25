@@ -93,7 +93,7 @@ Frame::Frame(const Frame &frame)
 
     if(!frame.mTcw.empty())
 		//这里说的是给新的帧设置Pose
-        SetPose(frame.mTcw);
+        SetTcwPose(frame.mTcw);
 }
 
 
@@ -119,6 +119,7 @@ Frame::Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extra
     // Frame ID
 	// Step 1 帧的ID 自增
     mnId=nNextId++;
+    mTcw=cv::Mat::eye(4,4,CV_32F);
     // Step 2 计算图像金字塔的参数
     // Scale Level Info
 	//获取图像金字塔的层数
@@ -214,7 +215,7 @@ void Frame::AssignFeaturesToGrid()
 
 
 // 设置相机姿态
-void Frame::SetPose(cv::Mat Tcw)
+void Frame::SetTcwPose(cv::Mat Tcw)
 {
     mTcw = Tcw.clone();
     UpdatePoseMatrices();
