@@ -381,8 +381,7 @@ void Sim3Solver::ComputeSim3(cv::Mat &P1, cv::Mat &P2)
     cv::Mat P3 = mR12i*Pr2;
 
     // Step 6: 计算尺度因子 Scale
-    if(!mbFixScale)
-    {
+    if(!mbFixScale){
         // 论文中有2个求尺度方法。一个是p632右中的位置，考虑了尺度的对称性
         // 代码里实际使用的是另一种方法，这个公式对应着论文中p632左中位置的那个
         // Pr1 对应论文里的r_r,i',P3对应论文里的 r_l,i',(经过坐标系转换的Pr2), n=3, 剩下的就和论文中都一样了
@@ -395,14 +394,11 @@ void Sim3Solver::ComputeSim3(cv::Mat &P1, cv::Mat &P2)
         double den = 0;
 
         // 然后再累加
-        for(int i=0; i<aux_P3.rows; i++)
-        {
-            for(int j=0; j<aux_P3.cols; j++)
-            {
+        for(int i=0; i<aux_P3.rows; i++){
+            for(int j=0; j<aux_P3.cols; j++){
                 den+=aux_P3.at<float>(i,j);
             }
         }
-
         ms12i = nom/den;
     }
     else
@@ -445,12 +441,9 @@ void Sim3Solver::CheckInliers()
     vector<cv::Mat> vP1im2, vP2im1;
     Project(mvX3Dc2,vP2im1,mT12i,mK1);// 把2系中的3D经过Sim3变换(mT12i)到1系中计算重投影坐标
     Project(mvX3Dc1,vP1im2,mT21i,mK2);// 把1系中的3D经过Sim3变换(mT21i)到2系中计算重投影坐标
-
     mnInliersi=0;
-
     // 对于两帧的每一个匹配点
-    for(size_t i=0; i<mvP1im1.size(); i++)
-    {
+    for(size_t i=0; i<mvP1im1.size(); i++){
         // 当前关键帧中的地图点直接在当前关键帧图像上的投影坐标mvP1im1，mvP2im2
         // 对于这对匹配关系,在两帧上的投影点距离都要进行计算
         cv::Mat dist1 = mvP1im1[i]-vP2im1[i];
@@ -461,8 +454,7 @@ void Sim3Solver::CheckInliers()
         const float err2 = dist2.dot(dist2);
 
         // 根据之前确定的这个最大容许误差来确定这对匹配点是否是外点
-        if(err1<mvnMaxError1[i] && err2<mvnMaxError2[i])
-        {
+        if(err1<mvnMaxError1[i] && err2<mvnMaxError2[i]){
             mvbInliersi[i]=true;
             mnInliersi++;
         }

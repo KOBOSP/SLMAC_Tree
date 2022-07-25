@@ -988,10 +988,8 @@ bool Tracking::TrackWithMotionModel()
     // Project points seen in previous frame
     // 设置特征匹配过程中的搜索半径
     int th;
-    if(mSensor!=System::STEREO)
+    if(mSensor==System::MONOCULAR)
         th=20;//单目
-    else
-        th=14;//双目
 
     // Step 3：用上一帧地图点进行投影匹配，如果匹配点不够，则扩大搜索半径再来一次
     int nmatches = matcher.SearchFMatchPointByProjectLastFrame(mCurrentFrame, mLastFrame, th,

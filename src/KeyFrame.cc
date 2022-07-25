@@ -767,7 +767,7 @@ void KeyFrame::EraseConnection(KeyFrame* pKF)
 }
 
 // 获取某个特征点的邻域中的特征点id,其实这个和 Frame.cc 中的那个函数基本上都是一致的; r为边长（半径）
-vector<size_t> KeyFrame::GetKeyPointsByArea(const float &x, const float &y, const float &r) const
+vector<size_t> KeyFrame::GetKeyPointsByArea(const float &x, const float &y, const float &r, const bool OnlyTarget) const
 {
     vector<size_t> vIndices;
     vIndices.reserve(mnKeyPointNum);
@@ -798,9 +798,14 @@ vector<size_t> KeyFrame::GetKeyPointsByArea(const float &x, const float &y, cons
             const vector<size_t> vCell = mGrid[ix][iy];
             for(size_t j=0, jend=vCell.size(); j<jend; j++){
                 const cv::KeyPoint &kpUn = mvKeysUn[vCell[j]];
+                if(kpUn.class_id>0 && !OnlyTarget){
+                    continue;
+                }
+                if(kpUn.class_id<0 && OnlyTarget){
+                    continue;
+                }
                 const float distx = kpUn.pt.x-x;
                 const float disty = kpUn.pt.y-y;
-
                 if(fabs(distx)<r && fabs(disty)<r)
                     vIndices.emplace_back(vCell[j]);
             }

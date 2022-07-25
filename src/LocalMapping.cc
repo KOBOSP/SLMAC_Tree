@@ -555,7 +555,7 @@ void LocalMapping::FuseMapPointsInNeighbors()
         // 1.如果地图点能匹配关键帧的特征点，并且该点有对应的地图点，那么选择观测数目多的替换两个地图点
         // 2.如果地图点能匹配关键帧的特征点，并且该点没有对应的地图点，那么为该点添加该投影地图点
         // 注意这个时候对地图点融合的操作是立即生效的
-        matcher.FuseRedundantMapPointInLocalMap(pKFi, vpMapPointMatches);
+        matcher.FuseRedundantMapPointAndSameIdObjectInLocalMap(pKFi, vpMapPointMatches);
     }
     // Search matches by projection from target KFs in current KF
     // Step 4：将两级相邻关键帧地图点分别投影到当前关键帧，寻找匹配点对应的地图点进行融合，称为反向投影融合
@@ -583,7 +583,7 @@ void LocalMapping::FuseMapPointsInNeighbors()
 //    cout<<"-1 vpFuseCandidates.size(): "<<vpFuseCandidates.size()<<endl;
     // Step 4.2：进行地图点投影融合,和正向融合操作是完全相同的
     // 不同的是正向操作是"每个关键帧和当前关键帧的地图点进行融合",而这里的是"当前关键帧和所有邻接关键帧的地图点进行融合"
-    matcher.FuseRedundantMapPointInLocalMap(mpCurrentKeyFrame, vpFuseCandidates);
+        matcher.FuseRedundantMapPointAndSameIdObjectInLocalMap(mpCurrentKeyFrame, vpFuseCandidates);
 
     // UpdateImgKPMPState points
     // Step 5：更新当前帧地图点的描述子、深度、平均观测方向等属性
@@ -671,9 +671,9 @@ void LocalMapping::FuseObjectsInGlobalMap(){
             continue;
         if(pKF->isBad())
             continue;
-        matcher.FuseRedundantMapPointInLocalMap(pKF, vpObjectInCurKF);
+        matcher.FuseRedundantMapPointAndSameIdObjectInLocalMap(pKF, vpObjectInCurKF);
     }
-    matcher.FuseRedundantMapPointInLocalMap(mpCurrentKeyFrame, vpCandidateMP);
+        matcher.FuseRedundantMapPointAndSameIdObjectInLocalMap(mpCurrentKeyFrame, vpCandidateMP);
 
     // UpdateImgKPMPState points
     // Step 5：更新当前帧地图点的描述子、深度、平均观测方向等属性

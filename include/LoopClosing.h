@@ -115,7 +115,10 @@ public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
 protected:
-    void FuseSameObjectIDInGlobalMap();
+    void FuseSameIdObjectInGlobalMap();
+    void LinkObjectIdByProjectGlobalMapToCurrentMap();
+    void LinkObjectIdByProjectGlobalMapToAllKF();
+    int GetRootIdxToSameObjectIdMap(int idx);
 
     /** @brief 查看列表中是否有等待被插入的关键帧
      *  @return true 如果有
@@ -123,7 +126,7 @@ protected:
     bool CheckNewKeyFrames();
 
     /** @brief 检测回环,如果有的话就返回真 */
-    bool DetectLoop();
+    bool DetectLoopByMapPoint();
 
     /**
      * @brief 计算当前帧与闭环帧的Sim3变换等
@@ -135,7 +138,8 @@ protected:
      * 注意以上匹配的结果均都存在成员变量mvpCurrentMatchedPoints中，实际的更新步骤见CorrectLoop()步骤3：Start Loop Fusion \n
      * 对于双目或者是RGBD输入的情况,计算得到的尺度=1
      */
-    bool ComputeSim3();
+    bool ComputeSim3AndMatchPointsByMapPoint();
+
 
     /**
      * @brief 通过将闭环时相连关键帧的MapPoints投影到这些关键帧中，进行MapPoints检查与替换
@@ -152,7 +156,8 @@ protected:
      * 4. 对Essential Graph（Pose Graph）进行优化，MapPoints的位置则根据优化后的位姿做相对应的调整                         \n
      * 5. 创建线程进行全局Bundle Adjustment
      */
-    void CorrectLoop();
+    void CorrectLoopByMapPoint();
+
     /** @brief  当前线程调用,检查是否有外部线程请求复位当前线程,如果有的话就复位回环检测线程 */
     void ResetIfRequested();
     /// 是否有复位当前线程的请求
@@ -196,6 +201,7 @@ protected:
     int mnfpsByCfgFile;
     int mnSingleMatchKeyPoint;
     int mnTotalMatchKeyPoint;
+    std::vector<int> mvnSameObjectIdMap;
 
     // Loop detector variables
     /// 当前关键帧,其实称之为"当前正在处理的关键帧"更加合适
@@ -218,13 +224,11 @@ protected:
     g2o::Sim3 mg2oScw;
 
     /// 上一次闭环帧的id
-    long unsigned int mLastLoopKFid;
+    long unsigned int mLastMapPointLoopKFid;
 
     // Variables related to Global Bundle Adjustment
     /// 全局BA线程是否在进行
     bool mbRunningGBA;
-    /// 全局BA线程在收到停止请求之后是否停止的比标志 //? 可是直接使用上面变量的逆不就可以表示了吗? //? 表示全局BA工作是否正常结束?
-    bool mbFinishedGBA;
     /// 由当前线程调用,请求停止当前正在进行的全局BA
     bool mbStopGBA;
     /// 在对和全局线程标志量有关的操作的时候使用的互斥量

@@ -224,7 +224,7 @@ public:
     float mTrackProjY;             ///< 当前地图点投影到某帧上后的坐标
     int mnTrackScaleLevel;         ///< 所处的尺度, 由其他的类进行操作 //?
     float mTrackViewCos;           ///< 被追踪到时,那帧相机看到当前地图点的视角
-    // TrackWithLocalMap - SearchKFMatchPointByProjectMapPoint 中决定是否对该点进行投影的变量
+    // TrackWithLocalMap - SearchKFNewMatchPointBySim3andLocalMP 中决定是否对该点进行投影的变量
     // NOTICE mbTrackInView==false的点有几种：
     // a 已经和当前帧经过匹配（TrackWithReferenceKeyFrame，TrackWithMotionModel）但在优化过程中认为是外点
     // b 已经和当前帧经过匹配且为内点，这类点也不需要再进行投影   //? 为什么已经是内点了之后就不需要再进行投影了呢? 

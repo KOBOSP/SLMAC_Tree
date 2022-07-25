@@ -127,7 +127,7 @@ public:
      * @param[in] th                搜索窗口的阈值
      * @return int                  匹配的特征点数目
      */
-    int SearchKFMatchPointByProjectMapPoint(KeyFrame* pKF, cv::Mat Scw, const std::vector<MapPoint*> &vpPoints, std::vector<MapPoint*> &vpMatched, int th, bool NeedObjectMP);
+    int SearchKFNewMatchPointBySim3andLocalMP(KeyFrame* pKF, cv::Mat Scw, const std::vector<MapPoint*> &vpPoints, std::vector<MapPoint*> &vpMatched, int th, bool NeedObjectMP);
 
     // Search matches between MapPoints in a KeyFrame and ORB in a Frame.
     // Brute force constrained to ORB that belong to the same vocabulary node (at a certain level)
@@ -178,7 +178,7 @@ public:
      * @param bOnlyStereo   在双目和rgbd情况下，是否要求特征点在右图存在匹配
      * @return              成功匹配的数量
      */
-    int SearchKFMatchPointByKFTarget(KeyFrame *pKF1, KeyFrame *pKF2, vector<pair<size_t, size_t> > &vMatchedPairs);
+    int SearchKFMatchObjectByKFTargetId(KeyFrame *pKF1, KeyFrame *pKF2, vector<pair<size_t, size_t> > &vMatchedPairs);
     int SearchNewKFMatchPointByKFF12(KeyFrame *pKF1, KeyFrame* pKF2, cv::Mat F12,
                                      std::vector<pair<size_t, size_t> > &vMatchedPairs);
 
@@ -196,7 +196,7 @@ public:
      * @param[in] th                搜索窗口阈值
      * @return int                  匹配到的点的个数
      */
-    int SearchNewKFMatchPointByKFSim3(KeyFrame* pKF1, KeyFrame* pKF2, std::vector<MapPoint *> &vpMatches12, const float &s12, const cv::Mat &R12, const cv::Mat &t12, const float th, bool NeedObjectMP);
+    int SearchNewKFMatchPointByKFMutualSim3(KeyFrame* pKF1, KeyFrame* pKF2, std::vector<MapPoint *> &vpMatches12, const float &s12, const cv::Mat &R12, const cv::Mat &t12, const float th, bool NeedObjectMP);
 
     // Project MapPoints into KeyFrame and search for duplicated MapPoints.
     /**
@@ -206,7 +206,8 @@ public:
      * @param[in] th            搜索窗口的阈值
      * @return int 
      */
-    int FuseRedundantMapPointInLocalMap(KeyFrame* pKF, const vector<MapPoint *> &vpMapPoints, const float th=3.0);
+    int FuseRedundantMapPointAndSameIdObjectInLocalMap(KeyFrame* pKF, const vector<MapPoint *> &vpMapPoints, const float th=3.0);
+    int FuseRedundantDifferIdObjectInLocalMap(KeyFrame* pKF, const vector<MapPoint *> &vpMapPoints, vector<int> &vnSameObjectIdMap, bool notRecursion = false, const float th = TH_LOW/2);
 
     // Project MapPoints into KeyFrame using a given Sim3 and search for duplicated MapPoints.
     /**

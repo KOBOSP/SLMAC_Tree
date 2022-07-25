@@ -264,9 +264,9 @@ namespace ORB_SLAM2 {
          * @param[in] r 邻域大小(半径)
          * @return std::vector<size_t> 在这个邻域内找到的特征点索引的集合
          */
-        std::vector<size_t> GetKeyPointsByArea(const float &x, const float &y, const float &r) const;
+        std::vector<size_t> GetKeyPointsByArea(const float &x, const float &y, const float &r, const bool OnlyTarget=false) const;
         std::vector<size_t> GetKeyPointsByObjectID(int ClassID) const;
-        vector<size_t> GetMapPointByObjectID(int ClassID);
+        std::vector<size_t> GetMapPointByObjectID(int ClassID);
 
         // Image
         /**

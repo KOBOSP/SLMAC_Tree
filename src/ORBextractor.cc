@@ -935,10 +935,10 @@ static void ComputeDescriptorInAllKPs(const Mat& image, vector<KeyPoint>& keypoi
  * @brief 用仿函数（重载括号运算符）方法来计算图像特征点
  * 
  * @param[in] _image                    输入原始图的图像
- * @param[in & out] _keypoints                存储特征点关键点的向量
+ * @param[in & out] vKeys                存储特征点关键点的向量
  * @param[in & out] _descriptors              存储特征点描述子的矩阵
  */
-void ORBextractor::RunExtractORB( InputArray _image, std::vector<cv::KeyPoint>& vTars, vector<KeyPoint>& _keypoints, OutputArray _descriptors)
+void ORBextractor::RunExtractORB(InputArray _image, std::vector<cv::KeyPoint>& vTars, vector<KeyPoint>& vKeys, OutputArray _descriptors)
 { 
 	// Step 1 检查图像有效性。如果图像为空，那么就直接返回
     if(_image.empty())
@@ -979,9 +979,9 @@ void ORBextractor::RunExtractORB( InputArray _image, std::vector<cv::KeyPoint>& 
         descriptors = _descriptors.getMat();
     }
     //清空用作返回特征点提取结果的vector容器
-    _keypoints.clear();
+    vKeys.clear();
 	//并预分配正确大小的空间
-    _keypoints.reserve(nkeypoints);
+    vKeys.reserve(nkeypoints);
 	//因为遍历是一层一层进行的，但是描述子那个矩阵是存储整个图像金字塔中特征点的描述子，所以在这里设置了Offset变量来保存“寻址”时的偏移量，
 	//辅助进行在总描述子mat中的定位
     int offset = 0;
@@ -1034,7 +1034,7 @@ void ORBextractor::RunExtractORB( InputArray _image, std::vector<cv::KeyPoint>& 
         // And addKFtoDB the keypoints to the output
         // 将keypoints中内容插入到_keypoints 的末尾
         // keypoint其实是对allkeypoints中每层图像中特征点的引用，这样allkeypoints中的所有特征点在这里被转存到输出的_keypoints
-        _keypoints.insert(_keypoints.end(), keypoints.begin(), keypoints.end());
+        vKeys.insert(vKeys.end(), keypoints.begin(), keypoints.end());
     }
 }
 

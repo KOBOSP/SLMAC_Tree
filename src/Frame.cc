@@ -196,11 +196,9 @@ void Frame::AssignFeaturesToGrid()
             mGrid[i][j].reserve(nReserve);
 
     // Step 2 遍历每个特征点，将每个特征点在mvKeysUn中的索引值放到对应的网格mGrid中
-    for(int i=0; i < mnKeyPointNum; i++)
-    {
+    for(int i=0; i < mnKeyPointNum; i++){
 		//从类的成员变量中获取已经去畸变后的特征点
         const cv::KeyPoint &kp = mvKeysUn[i];
-
 		//存储某个特征点所在网格的网格坐标，nGridPosX范围：[0,FRAME_GRID_COLS], nGridPosY范围：[0,FRAME_GRID_ROWS]
         int nGridPosX, nGridPosY;
 		// 计算某个特征点所在网格的网格坐标，如果找到特征点所在的网格坐标，记录在nGridPosX,nGridPosY里，返回true，没找到返回false

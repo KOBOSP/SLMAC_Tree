@@ -105,10 +105,10 @@ public:
      * 
      * @param[in] image         要操作的图像
      * @param[in] mask          图像掩膜，辅助进行图片处理，可以参考[https://www.cnblogs.com/skyfsm/p/6894685.html]
-     * @param[out] keypoints    保存提取出来的特征点的向量
+     * @param[out] vKeys    保存提取出来的特征点的向量
      * @param[out] descriptors  输出用的保存特征点描述子的cv::Mat
      */
-    void RunExtractORB(cv::InputArray image, std::vector<cv::KeyPoint>& vTars, std::vector<cv::KeyPoint>& keypoints,cv::OutputArray descriptors);
+    void RunExtractORB(cv::InputArray image, std::vector<cv::KeyPoint>& vTars, std::vector<cv::KeyPoint>& vKeys, cv::OutputArray descriptors);
 
 	//下面的这些内联函数都是用来直接获取类的成员变量的
 	
