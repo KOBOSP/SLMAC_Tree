@@ -81,11 +81,11 @@ public:
      * @return true                     该帧可以成功初始化，返回true
      * @return false                    该帧不满足初始化条件，返回false
      */
-    bool GetInitializationMatrixRT(const Frame &CurrentFrame,
-                                   const vector<int> &vMatches12,
-                                   cv::Mat &R21, cv::Mat &t21,
-                                   vector<cv::Point3f> &vP3D,
-                                   vector<bool> &vbTriangulated);
+    bool GetInitializationMatrixRTAndMPs(const Frame &CurrentFrame,
+                                         const vector<int> &vMatches12,
+                                         cv::Mat &R21, cv::Mat &t21,
+                                         vector<cv::Point3f> &vP3D,
+                                         vector<bool> &vbTriangulated);
 	
 private:
     /**

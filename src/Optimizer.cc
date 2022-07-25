@@ -304,7 +304,7 @@ void Optimizer::OptimizeAllKFsAndMPs(const vector<KeyFrame *> &vpKFs, const vect
  * @param   pFrame Frame
  * @return  inliers数量
  */
-int Optimizer::OptimizeFramePose(Frame *pFrame)
+int Optimizer::OptimizeFramePose(Frame *pFrame, double ErrorAddFactor)
 {
     // 该优化函数主要用于Tracking线程中：运动跟踪、参考帧跟踪、地图跟踪、重定位
 
@@ -343,7 +343,7 @@ int Optimizer::OptimizeFramePose(Frame *pFrame)
 
 
     // 自由度为2的卡方分布，显著性水平为0.05，对应的临界阈值5.991
-    const float deltaMono = sqrt(5.991);
+    const double deltaMono = sqrt(5.991);
 
     // Step 3：添加一元边
     {
@@ -359,9 +359,6 @@ int Optimizer::OptimizeFramePose(Frame *pFrame)
             if(pMP->GetbBad()){
                 continue;
             }
-//            if(pMP->GetbBad() || pMP->mnObjectID > 0){
-//                continue;
-//            }
             // Monocular observation
             nInitialCorrespondences++;
             pFrame->mvbOutlier[i] = false;
@@ -410,7 +407,8 @@ int Optimizer::OptimizeFramePose(Frame *pFrame)
     // Step 4：开始优化，总共优化四次，每次优化迭代10次,每次优化后，将观测分为outlier和inlier，outlier不参与下次优化
     // 由于每次优化后是对所有的观测进行outlier和inlier判别，因此之前被判别为outlier有可能变成inlier，反之亦然
     // 基于卡方检验计算出的阈值（假设测量有一个像素的偏差）
-    const float chi2Mono[4]={5.991,5.991,5.991,5.991};          // 单目
+//    const float chi2Mono[4]={5.991,5.991,5.991,5.991};          // 单目
+    const double chi2Mono[4]={5.991*(1+ErrorAddFactor),5.991*(1+ErrorAddFactor*2/3),5.991*(1+ErrorAddFactor*1/2),5.991*(1+ErrorAddFactor*1/3)};
     const int its[4]={10,10,10,10};// 四次迭代，每次迭代的次数
 
     // bad 的地图点个数
@@ -1213,7 +1211,6 @@ int Optimizer::OptimizeSim3(KeyFrame *pKF1, KeyFrame *pKF2, vector<MapPoint *> &
     const int N = vpMatches1.size();
     // 获取pKF1的地图点
     const vector<MapPoint*> vpMapPoints1 = pKF1->GetAllMapPointVectorInKF();
-
     vector<g2o::EdgeSim3ProjectXYZ*> vpEdges12;         //pKF2对应的地图点到pKF1的投影边
     vector<g2o::EdgeInverseSim3ProjectXYZ*> vpEdges21;  //pKF1对应的地图点到pKF2的投影边
     vector<size_t> vnIndexEdge;                         //边的索引
@@ -1241,15 +1238,12 @@ int Optimizer::OptimizeSim3(KeyFrame *pKF1, KeyFrame *pKF2, vector<MapPoint *> &
         const int i2 = pMP2->GetIndexInKeyFrame(pKF2);
 
         if(pMP1 && pMP2){
-//            if( pMP1->mnObjectID>0 || pMP2->mnObjectID>0){
-//                continue;
-//            }
             if(!pMP1->GetbBad() && !pMP2->GetbBad() && i2 >= 0){
                 // 如果这对匹配点都靠谱，并且对应的2D特征点也都存在的话，添加PointXYZ顶点
                 g2o::VertexSBAPointXYZ* vPoint1 = new g2o::VertexSBAPointXYZ();
                 // 地图点转换到各自相机坐标系下的三维点
-                cv::Mat P3D1w = pMP1->GetWorldPos();
-                cv::Mat P3D1c = R1w*P3D1w + t1w;
+                cv::Mat P3D1w = pMP1->GetWorldPos();//world pos
+                cv::Mat P3D1c = R1w*P3D1w + t1w;//KF1 pos
                 vPoint1->setEstimate(Converter::toVector3d(P3D1c));
                 vPoint1->setId(id1);
                 // 地图点不优化
@@ -1301,7 +1295,6 @@ int Optimizer::OptimizeSim3(KeyFrame *pKF1, KeyFrame *pKF2, vector<MapPoint *> &
 
         // Set edge x2 = S21*X1
         // Step 4.2 当前关键帧地图点投影到闭环候选帧的边 -- 反向投影
-
         // 地图点pMP2对应的观测特征点
         Eigen::Matrix<double,2,1> obs2;
         const cv::KeyPoint &kpUn2 = pKF2->mvKeysUn[i2];
@@ -1332,15 +1325,12 @@ int Optimizer::OptimizeSim3(KeyFrame *pKF1, KeyFrame *pKF2, vector<MapPoint *> &
     // Step 6：用卡方检验剔除误差大的边
     // Check inliers
     int nBad=0;
-    for(size_t i=0; i<vpEdges12.size();i++)
-    {
+    for(size_t i=0; i<vpEdges12.size();i++){
         g2o::EdgeSim3ProjectXYZ* e12 = vpEdges12[i];
         g2o::EdgeInverseSim3ProjectXYZ* e21 = vpEdges21[i];
         if(!e12 || !e21)
             continue;
-
-        if(e12->chi2()>th2 || e21->chi2()>th2)
-        {
+        if(e12->chi2()>th2 || e21->chi2()>th2){
             // 正向或反向投影任意一个超过误差阈值就删掉该边
             size_t idx = vnIndexEdge[i];
             vpMatches1[idx]=static_cast<MapPoint*>(NULL);
@@ -1371,15 +1361,12 @@ int Optimizer::OptimizeSim3(KeyFrame *pKF1, KeyFrame *pKF2, vector<MapPoint *> &
 
     // 统计第二次优化之后,这些匹配点中是内点的个数
     int nIn = 0;
-    for(size_t i=0; i<vpEdges12.size();i++)
-    {
+    for(size_t i=0; i<vpEdges12.size();i++){
         g2o::EdgeSim3ProjectXYZ* e12 = vpEdges12[i];
         g2o::EdgeInverseSim3ProjectXYZ* e21 = vpEdges21[i];
         if(!e12 || !e21)
             continue;
-
-        if(e12->chi2()>th2 || e21->chi2()>th2)
-        {
+        if(e12->chi2()>th2 || e21->chi2()>th2){
             size_t idx = vnIndexEdge[i];
             vpMatches1[idx]=static_cast<MapPoint*>(NULL);
         }

@@ -1,157 +1,136 @@
+
+
 #include "System.h"
 #include <string>
 #include <chrono>
 #include <iostream>
-#include <sys/stat.h>
 
 
 using namespace std;
 
 
-/**
- * 判断是否是一个文件
- */
-static bool IsFile(std::string filename) {
-    struct stat buffer;
-    return (stat (filename.c_str(), &buffer) == 0 && S_ISREG(buffer.st_mode));
-}
-
-/**
- * 判断是否是一个文件夹,
- * */
-static bool IsDir(std::string filefodler) {
-    struct stat buffer;
-    return (stat (filefodler.c_str(), &buffer) == 0 && S_ISDIR(buffer.st_mode));
-}
-
-
 const double PI = 3.141592657;
-const int EARTH_RADIUS = 6378137;
-
+const int EARTH_RADIUS = 6378137;//meter
 static inline double DegreeToRad(double degree){
     return  PI * degree / 180.0;
 }
-static inline double HaverSin(double x){
-    double v = sin(x / 2.0);
-    return v * v;
-}
-//计算距离(单位 : m). input: LonLatAlt(degree,degree,m) output distance(m)
-static double GetLLADistance(double lon1, double lat1, double alt1, double lon2, double lat2, double alt2){
-    double radlon1 = DegreeToRad(lon1);
-    double radlat1 = DegreeToRad(lat1);
-    double radlon2 = DegreeToRad(lon2);
-    double radlat2 = DegreeToRad(lat2);
-
-    double a = fabs(radlat1 - radlat2);
-    double b = fabs(radlon1 - radlon2);
-
-    double h = HaverSin(b) + cos(lat1) * cos(lat2) * HaverSin(a);
-    double distance = 2 * EARTH_RADIUS * asin(sqrt(h));
-    return sqrt(distance*distance+(alt1-alt2)*(alt1-alt2));
+static inline double RadToDegree(double rad){
+    return  rad / PI * 180.0;
 }
 
-static double GetXYZDistance(double X1, double Y1, double Z1, double X2, double Y2, double Z2){
-    return sqrt((X1-X2)*(X1-X2)+(Y1-Y2)*(Y1-Y2)+(Z1-Z2)*(Z1-Z2));
-}
-
-
-//Examples/Monocular/mono_video ./Vocabulary/ORBvoc.txt ./Examples/Monocular/mono_video.yaml ../long_time_tree.mp4 ../long_time_tree.txt
+//1-1024+1025-1342
+///home/kobosp/SLAM_YOLO/ORB_SLAM2_v6_GPS_fuse/Vocabulary/ORBvoc.txt /home/kobosp/SLAM_YOLO/ORB_SLAM2_v6_GPS_fuse/Examples/Monocular/mono_video.yaml /media/kobosp/downloads/Downloads/ScienceIsolandForest98/
+///home/kobosp/SLAM_YOLO/ORB_SLAM2_v6_GPS_fuse/Vocabulary/ORBvoc.txt /home/kobosp/SLAM_YOLO/ORB_SLAM2_v6_GPS_fuse/Examples/Monocular/mono_video.yaml /media/kobosp/downloads/Downloads/20220212DongHeSuccessImage/
+///home/kobosp/SLAM_YOLO/ORB_SLAM2_v6_GPS_fuse/Vocabulary/ORBvoc.txt /home/kobosp/SLAM_YOLO/ORB_SLAM2_v6_GPS_fuse/Examples/Monocular/mono_video.yaml /media/kobosp/downloads/20220224科学岛树林30m照片0.5ms/
+///home/kobosp/SLAM_YOLO/ORB_SLAM2_v6_GPS_fuse/Vocabulary/ORBvoc.txt /home/kobosp/SLAM_YOLO/ORB_SLAM2_v6_GPS_fuse/Examples/Monocular/mono_video.yaml /media/kobosp/POCKET2/SelfMakeTreeDataset/0.5ms2s/
 int main(int argc, char **argv) {
     cv::FileStorage fSettings(argv[2], cv::FileStorage::READ);
     int frame_width=fSettings["Camera.width"];
     int frame_height=fSettings["Camera.height"];
-    int IsSeq=fSettings["Image.IsSeq"];
-    double FrameInterval = fSettings["Camera.fps"];
-    FrameInterval= 1 / FrameInterval;
-    cv::Mat Trtk;
     auto TimeSystemInit = chrono::system_clock::now();
+    cv::Mat TgpsFrame, TgpsFirst;
+    TgpsFirst = cv::Mat(3, 1, CV_32F);
+    TgpsFrame = cv::Mat(3, 1, CV_32F);
 
-    ORB_SLAM2::System orb_slam2(argv[1], argv[2], argv[4], ORB_SLAM2::System::MONOCULAR, true);
-    if(IsSeq==1){
-        std::string sSeqPath = "/media/kobosp/POCKET3/dataset/slam数据集/RosarioDataset/sequence06/zed/*.png";
-        std::string sGpsPath = "/media/kobosp/POCKET3/dataset/slam数据集/RosarioDataset/sequence06/gps.log";
-        std::string sImageGpsPath = "/media/kobosp/POCKET3/dataset/slam数据集/RosarioDataset/sequence06/ImageGps.log";
-        std::vector<cv::String> vsImageFile;
-        cv::glob(sSeqPath, vsImageFile);
-        cv::Mat frame;
-        FILE * fpr= fopen (sGpsPath.c_str(), "r");
-        FILE * fpw= fopen (sImageGpsPath.c_str(), "a+");
-        int ntemp, nSVs;
-        double dtemp1, dtemp2, dGpsTimeStamp=0, dImageTimeStamp, dLat, dLon, dHorDil, dHSL, dHgeo;
-        char stemp[150], sMode[10];
+    ORB_SLAM2::System orb_slam2(argv[1], argv[2], ORB_SLAM2::System::MONOCULAR, true);
+    std::string sDetectImageLoLaAtPath = argv[3];
+    long unsigned int nFrameID = 1, nTargetID = 1, nClassID, nAngDiv=8;
+    double dLon, dLat, dAlt;
+    FILE * fprgps= fopen ((sDetectImageLoLaAtPath + "LoLaAt.txt").c_str(), "r");
+    double tmpTargetX, tmpTargetY, tmpTargetL, tmpTargetH, tmpConfid;
+    vector<cv::KeyPoint> vTarsInFrame;
+    vTarsInFrame.resize(50);
+    cv::Mat FrameOrigin, FrameResized;
+    vector<vector<double> > vvdLastFrameTargetPos;
+    vvdLastFrameTargetPos.reserve(70);
+    vector<vector<double> > vvdNowFrameTargetPos;//cenX,cenY,Rad,Id
+    vvdNowFrameTargetPos.reserve(70);
+    while(fscanf(fprgps, "%lf %lf %lf\n", &dLon, &dLat, &dAlt) != -1) {
+        if(nFrameID==1288){
+            break;
+        }
+        if(nFrameID==1){
+            TgpsFirst.at<float>(0)= dLon;
+            TgpsFirst.at<float>(1)= dLat;
+            TgpsFirst.at<float>(2)= dAlt;
+        }
+        TgpsFrame.at<float>(0)=DegreeToRad(TgpsFirst.at<float>(0)-dLon)*EARTH_RADIUS*cos(DegreeToRad(dLat));
+        TgpsFrame.at<float>(1)=DegreeToRad(TgpsFirst.at<float>(1)-dLat)*EARTH_RADIUS;
+        TgpsFrame.at<float>(2)=TgpsFirst.at<float>(2)-dAlt;
 
-        for(vector<cv::String>::iterator iter = vsImageFile.begin(), iend = vsImageFile.end();iter!=iend;iter++) {
-            string sImageTS = (*iter).substr((*iter).length() - 21, 16);
-            sscanf(sImageTS.c_str(), "%lf", &dImageTimeStamp);
-            cv::namedWindow("Display Sequence");
-            cv::Mat DisSeq=imread((*iter));
-            imshow("Display Sequence",DisSeq);
-            while (dGpsTimeStamp < dImageTimeStamp){
-                if(fscanf(fpr, "%lf GPS-RTK: %s ", &dtemp1, sMode)==-1){
-                    return 0;
-                }
-                if (sMode[4] != 'G') {
-                    fscanf(fpr, "%[^\n]\n", stemp);
-//                    printf("1-||%lf, ||%lf, ||%s， ||%s\n", dImageTimeStamp, dGpsTimeStamp, sMode, stemp);
-                }
-                else{
-                    dGpsTimeStamp = dtemp1;
-                    printf("%lf\r",dGpsTimeStamp);
-                    fscanf(fpr, "%lf %lf S %lf W %d %d %lf %lf M %lf M %lf %s\n",&dtemp2,&dLat,&dLon,&ntemp,&nSVs,&dHorDil,&dHSL,&dHgeo,&dtemp2,stemp);
-//                    printf("2-||%lf, ||%lf, ||%lf, ||%lf, ||%s\n", dImageTimeStamp, dGpsTimeStamp, dLat, dLon);
+        FILE * fprTarget= fopen ((sDetectImageLoLaAtPath + "targets/" + to_string(nFrameID) + ".txt").c_str(), "r");
+        while(fscanf(fprTarget, "%d %lf %lf %lf %lf %lf\n", &nClassID, &tmpTargetX, &tmpTargetY, &tmpTargetL, &tmpTargetH, &tmpConfid)!=-1){
+            double dNowTarRad=sqrt(pow(tmpTargetL*frame_width,2)+pow(tmpTargetH*frame_height,2))/2.0;
+            vector<double>tmp;
+            tmp.emplace_back(tmpTargetX*frame_width);
+            tmp.emplace_back(tmpTargetY*frame_height);
+            tmp.emplace_back(dNowTarRad);
+            tmp.emplace_back(-1);
+            vvdNowFrameTargetPos.emplace_back(tmp);
+        }
+        vector<vector<int> > vnMatchId(vvdNowFrameTargetPos.size(),vector<int>(nAngDiv,-1));
+        vector<vector<double> > vnMatchDis(vvdNowFrameTargetPos.size(),vector<double>(nAngDiv,999));
+        vector<int> vnMatchAng(nAngDiv,0);
+        for(int i=0;i<vvdNowFrameTargetPos.size();i++) {
+            double DiffX,DiffY,DiffDis,Angle;
+            int tmpAng;
+            for(int j=0;j<vvdLastFrameTargetPos.size();j++){
+                DiffX=vvdNowFrameTargetPos[i][0]-vvdLastFrameTargetPos[j][0];
+                DiffY=vvdNowFrameTargetPos[i][1]-vvdLastFrameTargetPos[j][1];
+                DiffDis=sqrt(pow(DiffX,2) + pow(DiffY,2));
+                Angle=RadToDegree(atan(DiffY/DiffX))+((DiffX<0)?270:90);
+                tmpAng=Angle/(360/nAngDiv);
+                if(DiffDis<vvdNowFrameTargetPos[i][2]*2){
+                    vnMatchAng[tmpAng]++;
+                    if(DiffDis<vnMatchDis[i][tmpAng]) {
+                        vnMatchId[i][tmpAng] = j;
+                        vnMatchDis[i][tmpAng] = DiffDis;
+                    }
                 }
             }
-            fprintf(fpw, "%016.06lf %016.06lf %011.07lf %012.07lf %06.03lf %02d\n", dImageTimeStamp, dGpsTimeStamp, dLon, dLat, dHgeo, nSVs);
         }
-        return 0;
-        //            frame = cv::imread(*iter);
-    }
-    else if(IsSeq==2) {
-        ///home/kobosp/SLAM_YOLO/ORB_SLAM2_v5.2_Optical_Flow/Vocabulary/ORBvoc.txt /home/kobosp/SLAM_YOLO/ORB_SLAM2_v5.2_Optical_Flow/Examples/Monocular/mono_video.yaml /media/kobosp/POCKET5/ScienceIsolandForest98/ /home/kobosp/SLAM_YOLO/empty.txt
-        std::string sImageGpsPath = argv[3];
-//        std::string sImageGpsPath = "/media/kobosp/POCKET5/ScienceIsolandForest/";
-        int FrameID=1;
-        char stemp[10];
-        double dLat, dLon, dAlt;
-        FILE * fpr= fopen ((sImageGpsPath+"AllFigLLA.txt").c_str(), "r");
-        printf("%s\n",(sImageGpsPath+"Images/"+stemp).c_str());
-        while(fscanf(fpr, "%s %lf %lf %lf\n", stemp, &dLon, &dLat, &dAlt)!=-1) {
-            printf("%s\n",(sImageGpsPath+"Images/"+stemp).c_str());
-            cv::Mat frame = cv::imread((sImageGpsPath+"Images/"+stemp).c_str());
-            cv::Mat FrameResized;
-            cv::resize(frame, FrameResized, cv::Size(frame_width, frame_height));
-            Trtk = cv::Mat(3,1,CV_32F);
-            Trtk.at<float>(0)=(dLon/360.0)*2.0*PI*EARTH_RADIUS*cos(DegreeToRad(dLat));
-            Trtk.at<float>(1)=(dLat/360.0)*2.0*PI*EARTH_RADIUS;
-            Trtk.at<float>(2)=dAlt;
-            orb_slam2.TrackMonocular(FrameResized, FrameInterval * FrameID, FrameID++, Trtk);
-        }
-    }
-    else if(IsSeq==0){
-        ///home/kobosp/SLAM_YOLO/ORB_SLAM2_v5.2_Optical_Flow/Vocabulary/ORBvoc.txt /home/kobosp/SLAM_YOLO/ORB_SLAM2_v5.2_Optical_Flow/Examples/Monocular/mono_video.yaml /home/kobosp/SLAM_YOLO/5m20s740416p10fps.mp4 /home/kobosp/SLAM_YOLO/5m20s740416p10fps.txt
-        cv::VideoCapture cap(argv[3]);    // change to 1 if you want to use USB camera.
-        unsigned long FrameID=0;
-        while (1) {
-            cv::Mat frame;
-            cap >> frame;
-            ++FrameID;
-            if (frame.data == nullptr)
-                break;
-            cv::Mat FrameResized;
-            cv::resize(frame, FrameResized, cv::Size(frame_width, frame_height));
-            auto TimeStart = chrono::system_clock::now();
-            orb_slam2.TrackMonocular(FrameResized, chrono::duration_cast<chrono::milliseconds>(TimeStart- TimeSystemInit).count() / 1000.0, FrameID, Trtk);
-            auto TimeEnd = chrono::system_clock::now();
-            double TimePast = chrono::duration_cast<chrono::milliseconds>(TimeEnd - TimeStart).count() / 1000.0;
-            int FramePast = TimePast / FrameInterval;
-            while(FramePast > 1){
-                cap >> frame;
-                FrameID++;
-                FramePast--;
+        int nFirst=-1,nSecond=-1,nCandidId;
+        for(int i=0;i<nAngDiv;i++){
+            if(vnMatchAng[i]>nFirst){
+                nSecond=nFirst;
+                nFirst=vnMatchAng[i];
+                nCandidId=i;
+            }
+            else if(vnMatchAng[i]>nSecond){
+                nSecond=vnMatchAng[i];
             }
         }
+        if(nFirst/2<nSecond){
+            cout<<"nFirst/2<nSecond "<<nFirst/2<<" "<<nSecond<<endl;
+        }
+        for(int i=0;i<vvdNowFrameTargetPos.size();i++) {
+            if(vnMatchId[i][nCandidId]==-1){
+                vvdNowFrameTargetPos[i][3]=nTargetID++;
+            }
+            else{
+                vvdNowFrameTargetPos[i][3]=vnMatchId[i][nCandidId];
+            }
+        }
+        for(int i=0;i<vvdNowFrameTargetPos.size();i++){
+            cout<<"vvdNowFrameTargetPos[i][0] "<<vvdNowFrameTargetPos[i][0]<<" "<<nCandidId<<" "<<vvdNowFrameTargetPos[i][1]<<" "<<vvdNowFrameTargetPos[i][2]<<" "<<vvdNowFrameTargetPos[i][3]<<endl;
+            vTarsInFrame.emplace_back(cv::KeyPoint(cv::Point2f(vvdNowFrameTargetPos[i][0], vvdNowFrameTargetPos[i][1]),
+                                                   vvdNowFrameTargetPos[i][2],
+                                                   tmpConfid,
+                                                   0,
+                                                   0,
+                                                   int(vvdNowFrameTargetPos[i][3])));
+        }
+        cout<<"vvdLastFrameTargetPos.size()<<\" \"<<vvdNowFrameTargetPos.size() "<<vvdLastFrameTargetPos.size()<<" "<<vvdNowFrameTargetPos.size()<<endl;
+        vvdLastFrameTargetPos.assign(vvdNowFrameTargetPos.begin(),vvdNowFrameTargetPos.end());
+        vvdNowFrameTargetPos.clear();
+        FrameOrigin = cv::imread((sDetectImageLoLaAtPath + "images/" + to_string(nFrameID) + ".jpg").c_str());
+        cv::resize(FrameOrigin, FrameResized, cv::Size(frame_width, frame_height));
+        auto TimeStart = chrono::system_clock::now();
+        orb_slam2.TrackMonocular(FrameResized, chrono::duration_cast<chrono::milliseconds>(TimeStart- TimeSystemInit).count() / 1000.0, nFrameID++, vTarsInFrame, TgpsFrame);
+        vTarsInFrame.clear();
+        fclose(fprTarget);
     }
-
+    fclose(fprgps);
     cv::waitKey(0);
     orb_slam2.Shutdown();
     return 0;

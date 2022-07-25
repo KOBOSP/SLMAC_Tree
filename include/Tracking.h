@@ -82,7 +82,7 @@ public:
      * @param[in] sensor            传感器类型
      */
     Tracking(System* pSys, ORBVocabulary* pVoc, FrameDrawer* pFrameDrawer, MapDrawer* pMapDrawer, Map* pMap,
-             KeyFrameDatabase* pKFDB, const string &strSettingPath, const string &strFrameTargetFile, const int sensor);
+             KeyFrameDatabase* pKFDB, const string &strSettingPath, const int sensor);
 
     // Preprocess the input and call InitialOrDoORBTrack(). Extract features and performs stereo matching.
     // 下面的函数都是对不同的传感器输入的图像进行处理(转换成为灰度图像),并且调用Tracking线程
@@ -94,9 +94,7 @@ public:
      * @param[in] timestamp     时间戳
      * @return cv::Mat          世界坐标系到该帧相机坐标系的变换矩阵
      */
-    bool CreatORBFrameOrOpticalTrack(const cv::Mat &Img, const double &timestamp, int FrameID, cv::Mat &Trtk, cv::Mat &FAITcw);
-
-    bool TrackWithOpticalFlow(Frame &LastFrame, cv::Mat K, cv::Mat mDistCoef, cv::Mat &mTcw, int &mnMatchesInliers);
+    bool CreatORBFrameOrOpticalTrack(const cv::Mat &Img, const double &timestamp, long unsigned int FrameID, vector<cv::KeyPoint> &vTarsInFrame, cv::Mat &TgpsFrame, cv::Mat &FAITcw);
 
         // Main tracking function. It is independent of the input sensor.
     /** @brief 主追踪进程 */
@@ -145,7 +143,7 @@ public:
     eTrackingState mState;
     ///上一帧的跟踪状态.这个变量在绘制当前帧的时候会被使用到
     eTrackingState mLastProcessedState;
-    bool mbMotionMethodTrackOK;
+    int mnMotionOrGpsOrRefKFTrackOK;
     // Input sensor:MONOCULAR, STEREO, RGBD
     int mSensor;
     // Current Frame
@@ -154,8 +152,11 @@ public:
     ///> 还有当前帧的灰度图像 //? 提问,那么在双目输入和在RGBD输入的时候呢? 
     ///>                        在双目输入和在RGBD输入时，为左侧图像的灰度图
     cv::Mat mImgGray;
-    cv::Mat mLastImgGray;
-    int mnImgfps;
+    cv::Mat mSim3VoGps;
+    int mnSim3Inliers;
+
+    // 新建关键帧和重定位中用来判断最小最大时间间隔，和帧率有关
+    int mnfpsByCfgFile;
     double mTcwDivLLARadio;
 
     // Initialization Variables (Monocular)
@@ -218,15 +219,6 @@ protected:
     bool TrackWithReferenceKeyFrame();
 
     /**
-     * @brief 双目或rgbd摄像头根据深度值为上一帧产生新的MapPoints
-     *
-     * 在双目和rgbd情况下，选取一些深度小一些的点（可靠一些） \n
-     * 可以通过深度值产生一些新的MapPoints
-     */
-
-    void UpdateLastFrame();
-
-    /**
      * @brief 根据匀速度模型对上一帧的MapPoints进行跟踪
      * 
      * 1. 非单目情况，需要对上一帧产生一些新的MapPoints（临时）     
@@ -236,19 +228,13 @@ protected:
      * @return 如果匹配数大于10，返回true
      * @see V-B Initial Pose Estimation From Previous Frame
      */
-    bool TrackWithTrtkTranslation();
     bool TrackWithMotionModel();
+    bool TrackWithGpsTranslation(vector<KeyFrame*> &vKFNearest);
+
 
     /** @brief 重定位模块 */
     bool Relocalization();
 
-    /**
-     * @brief 更新局部地图 LocalMap
-     *
-     * 局部地图包括：共视关键帧、临近关键帧及其子父关键帧，由这些关键帧观测到的MapPoints
-     */
-    void RefreshLocalKeyFramesAndMapPoints();
-    
     /**
      * @brief 更新局部地图点（来自局部关键帧）
      * 
@@ -277,6 +263,9 @@ protected:
      * @return false        跟踪失败
      */
     bool TrackWithLocalMap();
+
+
+
     /**
      * @brief 对 Local MapPoints 进行跟踪
      * 
@@ -303,8 +292,6 @@ protected:
     ///当进行纯定位时才会有的一个变量,为false表示该帧匹配了很多的地图点,跟踪是正常的;如果少于10个则为true,表示快要完蛋了
     ///and has a possible way: track local map point < 50 in SLAM mode
     bool mbBadVO;
-    bool mbUseLKOpticalFlow;
-    int mnImageIsSeq;
     int mnGoodMMOrRKFVOThreshold;
     int mnLossMMOrRKFVOThreshold;
     int mnGoodLMVOThreshold;
@@ -367,19 +354,12 @@ protected:
     ///相机的去畸变参数
     cv::Mat mDistCoef;
 
-    //New KeyFrame rules (according to fps)
-    // 新建关键帧和重定位中用来判断最小最大时间间隔，和帧率有关
-    int mnfpsByCfgFile;
 
     // Threshold close/far points
     // Points seen as close by the stereo/RGBD sensor are considered reliable
     // and inserted from just one frame. Far points requiere a match in two keyframes.
     ///用于区分远点和近点的阈值. 近点认为可信度比较高;远点则要求在两个关键帧中得到匹配
     float mThDepth;
-
-    // For RGB-D inputs only. For some datasets (e.g. TUM) the depthmap values are scaled.
-    ///深度缩放因子,链接深度值和具体深度值的参数.只对RGBD输入有效
-    float mDepthMapFactor;
 
     //Current matches in frame
     ///当前帧中的进行匹配的内点,将会被不同的函数反复使用
@@ -390,11 +370,6 @@ protected:
     KeyFrame* mpLastKeyFrame;
     // 上一帧
     Frame mLastFrame;
-    cv::Mat mLKOFLastFToCurFTcw;
-    bool mbLastIsFrame;
-    vector<cv::Point2f> mvKPInLastFrame;
-    vector<cv::Point2f> mvKPInLastFrametmp;
-    vector<cv::Point3f> vMPInLastFrame;
     // 上一个关键帧的ID
     unsigned int mnLastKeyFrameId;
     // 上一次重定位的那一帧的ID
@@ -407,7 +382,6 @@ protected:
     ///RGB图像的颜色通道顺序
     bool mbRGB;
 
-    vector<vector<cv::KeyPoint> > mvTarsSet;
 };  //class Tracking
 
 } //namespace ORB_SLAM

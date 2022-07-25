@@ -65,7 +65,7 @@ public:
      * 
      * @param[in] pTracker 追踪线程
      */
-    void UpdateImgKPMPState(Tracking *pTracker);
+    int UpdateImgKPMPState(Tracking *pTracker);
 
     // Draw last processed frame.
     //
@@ -95,7 +95,7 @@ protected:
     int mnColorSetSize;
     vector<cv::Point3f> mvColorSet;
     ///TrackWithReferenceKeyFrame or TrackWithMotionModel
-    bool mbMotionMethodTrackOK;
+    int mnMotionOrGpsOrRefKFTrackOK;
     ///当前帧中的特征点
     vector<cv::KeyPoint> mvCurrentKeys;
     ///当前帧中的特征点是否在地图中的标记

@@ -37,8 +37,6 @@
 
 namespace ORB_SLAM2
 {
-//下一个生成的帧的ID,这里是初始化类的静态成员变量
-long unsigned int Frame::nNextId=0;
 
 //是否要进行初始化操作的标志
 //这里给这个标志置位的操作是在最初系统开始加载到内存的时候进行的，下一帧就是整个系统的第一帧，所以这个标志要置位
@@ -81,7 +79,7 @@ Frame::Frame(const Frame &frame)
      mvInvScaleFactors(frame.mvInvScaleFactors),			//深拷贝
      mvLevelSigma2(frame.mvLevelSigma2), 					//深拷贝
      mvInvLevelSigma2(frame.mvInvLevelSigma2),				//深拷贝
-      mTrtk(frame.mTrtk.clone())
+      mtFrameGps(frame.mtFrameGps.clone())
 {
 	//逐个复制，其实这里也是深拷贝
     for(int i=0;i<FRAME_GRID_COLS;i++)
@@ -110,15 +108,15 @@ Frame::Frame(const Frame &frame)
  * @param[in] bf                                //baseline*f
  * @param[in] thDepth                           //区分远近点的深度阈值
  */
-Frame::Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc,
+Frame::Frame(long unsigned int FrameId, const cv::Mat &imGray, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc,
              cv::Mat &K, cv::Mat &distCoef, const float &thDepth,
-             std::vector<cv::KeyPoint> &vTars, cv::Mat &Trtk)
+             std::vector<cv::KeyPoint> &vTars, cv::Mat &TgpsFrame)
     : mpORBvocabulary(voc), mpORBextractorLeft(extractor), mpORBextractorRight(static_cast<ORBextractor*>(NULL)),
-      mTimeStamp(timeStamp), mK(K.clone()), mDistCoef(distCoef.clone()), mThDepth(thDepth), mTrtk(Trtk.clone())
+      mTimeStamp(timeStamp), mK(K.clone()), mDistCoef(distCoef.clone()), mThDepth(thDepth), mtFrameGps(TgpsFrame.clone())
 {
     // Frame ID
 	// Step 1 帧的ID 自增
-    mnId=nNextId++;
+    mnId=FrameId;
     mTcw=cv::Mat::eye(4,4,CV_32F);
     // Step 2 计算图像金字塔的参数
     // Scale Level Info
@@ -271,7 +269,7 @@ bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit)
 
     // 3D in camera coordinates
     // 根据当前帧(粗糙)位姿转化到当前相机坐标系下的三维点Pc
-    const cv::Mat Pc = mRcw*P+mtcw; 
+    const cv::Mat Pc = mRcw*P+mtcw;
     const float &PcX = Pc.at<float>(0);
     const float &PcY = Pc.at<float>(1);
     const float &PcZ = Pc.at<float>(2);

@@ -42,10 +42,10 @@ MapPoint::MapPoint(const cv::Mat &Pos,  //地图点的世界坐标
                    int nObjectID,
                    float fsize):
         mnFirstKFid(pRefKF->mnId),              //第一次观测/生成它的关键帧 id
-    mnFirstFrame(pRefKF->mnFrameId),        //创建该地图点的帧ID(因为关键帧也是帧啊)
     mnObserve(0),                                //被观测次数
-    mnTrackReferenceForFrame(0),            //放置被重复添加到局部地图点的标记
-    mnLastFrameSeen(0),                     //是否决定判断在某个帧视野中的变量
+    mnFrameIdForLocalMp(0),            //放置被重复添加到局部地图点的标记
+    mnFrameIdForGpsOrMotion(0),
+        mnLastFrameSeen(0),                     //是否决定判断在某个帧视野中的变量
     mnBALocalForKF(0),                      //
     mnFuseCandidateInLM(0),                //
     mnFuseCandidateInLC(0),                //
@@ -138,7 +138,7 @@ void MapPoint::EraseObservation(KeyFrame* pKF)
                 mpRefKF=mmObservationsKFAndMPidx.begin()->first;
             // If only 2 observations or less, discard point
             // 当观测到该点的相机数目少于2时，丢弃该点
-            if(mnObserve <= 2)
+            if(mnObserve <= 1)
                 bBad=true;
         }
     }

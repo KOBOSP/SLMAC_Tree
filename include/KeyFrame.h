@@ -239,7 +239,7 @@ namespace ORB_SLAM2 {
         /**
          * @brief Get MapPoint Matches 获取该关键帧的MapPoints
          */
-        std::vector<MapPoint *> GetAllMapPointVectorInKF(bool NeedObjectMP = true);
+        std::vector<MapPoint *> GetAllMapPointVectorInKF(bool bNeedObject = true);
         std::vector<MapPoint*> GetAllObjctsInKF();
         /**
          * @brief 关键帧中，大于等于minObs的MapPoints的数量
@@ -313,13 +313,9 @@ namespace ORB_SLAM2 {
         // The following variables are accesed from only 1 thread or never change (no mutex needed).
     public:
 
-        /// nNextID名字改为nLastID更合适，表示上一个KeyFrame的ID号
-        static long unsigned int nNextId;
+
         /// 在nNextID的基础上加1就得到了mnID，为当前KeyFrame的ID号
         long unsigned int mnId;
-        /// 每个KeyFrame基本属性是它是一个Frame，KeyFrame初始化的时候需要Frame，
-        /// mnFrameId记录了该KeyFrame是由哪个Frame初始化的
-        const long unsigned int mnFrameId;
 
         /// 时间戳
         const double mTimeStamp;
@@ -362,7 +358,7 @@ namespace ORB_SLAM2 {
         cv::Mat mTcwGBA;
         // 进行全局BA优化之前的当前关键帧的位姿. 之所以要记录这个是因为在全局优化之后还要根据该关键帧在优化之前的位姿来更新地图点,which地图点的参考关键帧就是该关键帧
         cv::Mat mTcwBefGBA;
-        cv::Mat mTrtk;
+        cv::Mat mTgpsFrame;
         // 记录是由于哪个"当前关键帧"触发的全局BA,用来防止重复写入的事情发生(浪费时间)
         long unsigned int mnBAGlobalForKF;
 

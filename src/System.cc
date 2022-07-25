@@ -32,7 +32,6 @@ namespace ORB_SLAM2{
 //系统的构造函数，将会启动其他的线程
 System::System(const string &strVocFile,					//词典文件路径
 			   const string &strSettingsFile,				//配置文件路径
-			   const string &strFrameTargetFile,
 			   const eSensor sensor,						//传感器类型
                const bool bUseViewer):						//是否使用可视化界面
 					 mSensor(sensor), 							//初始化传感器类型
@@ -79,7 +78,7 @@ System::System(const string &strVocFile,					//词典文件路径
     mpMapDrawer = new MapDrawer(mpMap, strSettingsFile);
 
     //在本主进程中初始化追踪线程
-    //GetInitializationMatrixRT the Tracking thread
+    //GetInitializationMatrixRTAndMPs the Tracking thread
     //(it will live in the main thread of execution, the one that called this constructor)
     mpTracker = new Tracking(this,						//现在还不是很明白为什么这里还需要一个this指针  TODO  
     						 mpVocabulary,				//字典
@@ -88,11 +87,10 @@ System::System(const string &strVocFile,					//词典文件路径
                              mpMap, 					//地图
                              mpKeyFrameDatabase, 		//关键帧地图
                              strSettingsFile, 			//设置文件路径
-                             strFrameTargetFile,
                              mSensor);					//传感器类型iomanip
 
     //初始化局部建图线程并运行
-    //GetInitializationMatrixRT the Local Mapping thread and launch
+    //GetInitializationMatrixRTAndMPs the Local Mapping thread and launch
     mpLocalMapper = new LocalMapping(mpMap, 				//指定使iomanip
     								 mSensor==MONOCULAR,
                                      fCullKFRedundantMPRate);
@@ -100,7 +98,7 @@ System::System(const string &strVocFile,					//词典文件路径
     mptLocalMapping = new thread(&ORB_SLAM2::LocalMapping::Run,	//这个线程会调用的函数
     							 mpLocalMapper);				//这个调用函数的参数
 
-    //GetInitializationMatrixRT the Loop Closing thread and launchiomanip
+    //GetInitializationMatrixRTAndMPs the Loop Closing thread and launchiomanip
     mpLoopCloser = new LoopClosing(mpMap, 						//地图
     							   mpKeyFrameDatabase, 			//关键帧数据库
     							   mpVocabulary, 				//ORB字典
@@ -111,7 +109,7 @@ System::System(const string &strVocFile,					//词典文件路径
     mptLoopClosing = new thread(&ORB_SLAM2::LoopClosing::Run,	//线程的主函数
     							mpLoopCloser);					//该函数的参数
 
-    //GetInitializationMatrixRT the Viewer thread and launch
+    //GetInitializationMatrixRTAndMPs the Viewer thread and launch
     if(bUseViewer){
     	//如果指定了，程序的运行过程中需要运行可视化部分
     	//新建viewer
@@ -139,9 +137,8 @@ System::System(const string &strVocFile,					//词典文件路径
 }
 
 //同理，输入为单目图像时的追踪器接口
-cv::Mat System::TrackMonocular(const cv::Mat &im, const double &timestamp, int FrameID, cv::Mat Trtk)
-{
-    if(mSensor!=MONOCULAR){
+cv::Mat System::TrackMonocular(const cv::Mat &im, const double &timestamp, long unsigned int FrameID, vector<cv::KeyPoint> vTarsInFrame, cv::Mat TgpsFrame)
+{    if(mSensor!=MONOCULAR){
         cerr << "ERROR: you called TrackMonocular but input sensor was not set to Monocular." << endl;
         exit(-1);
     }
@@ -181,14 +178,8 @@ cv::Mat System::TrackMonocular(const cv::Mat &im, const double &timestamp, int F
     }
     cv::Mat Tcw;
     //获取相机位姿的估计结果
-    if(mpTracker->CreatORBFrameOrOpticalTrack(im, timestamp, FrameID, Trtk, Tcw)){//false LK optical flow; true ORB_frame
-//        auto TimeStart = chrono::system_clock::now();
-//        auto TimeEnd = chrono::system_clock::now();
-//        double TimePast = chrono::duration_cast<chrono::milliseconds>(TimeEnd - TimeStart).count() / 1000.0;
-//        printf("Frame %u: %lf\n",mpTracker->mCurrentFrame.mnId, TimePast);
-//        clock_t a = clock();
-//        clock_t b = clock();
-//        cout<<"track LK optical flow use time:"<<1000*(float)(b-a)/CLOCKS_PER_SEC<<"ms"<<endl;
+    auto TimeSystemInit = chrono::system_clock::now();
+    if(mpTracker->CreatORBFrameOrOpticalTrack(im, timestamp, FrameID, vTarsInFrame, TgpsFrame, Tcw)){//false LK optical flow; true ORB_frame
 //        Step 3 ：跟踪
         Tcw = mpTracker->InitialOrDoORBTrack();
         //返回当前帧的位姿
@@ -197,7 +188,6 @@ cv::Mat System::TrackMonocular(const cv::Mat &im, const double &timestamp, int F
         mTrackedMapPoints = mpTracker->mCurrentFrame.mvpMapPoints;
         mTrackedKeyPointsUn = mpTracker->mCurrentFrame.mvKeysUn;
     }
-
     return Tcw;
 }
 

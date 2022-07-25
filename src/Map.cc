@@ -130,14 +130,28 @@ vector<KeyFrame*> Map::GetAllKeyFrames()
     unique_lock<mutex> lock(mMutexMap);
     return vector<KeyFrame*>(mspKeyFrames.begin(),mspKeyFrames.end());
 }
+//获取地图中的nNum nearest queue关键帧
+void Map::GetNearestKeyFramesByGps(int nNum, vector<KeyFrame*> &vKFNearest, cv::Mat t0)
+{
+    vector<KeyFrame*> vKFAll=GetAllKeyFrames();
+    vector<pair<double,KeyFrame*> >vpdpDistanceAndKF;
+    vpdpDistanceAndKF.reserve(vKFAll.size());
+    for(vector<KeyFrame*>::iterator vit=vKFAll.begin(), vend=vKFAll.end(); vit!=vend; vit++){
+        vpdpDistanceAndKF.emplace_back(make_pair(cv::norm((*vit)->mTgpsFrame-t0), (*vit)));
+    }
+    sort(vpdpDistanceAndKF.begin(),vpdpDistanceAndKF.end());
+    for(vector<pair<double,KeyFrame*> >::iterator vit=vpdpDistanceAndKF.begin(), vend=vpdpDistanceAndKF.end(); vit!=vend&&nNum>0; vit++,nNum--){
+        vKFNearest.emplace_back((*vit).second);
+    }
+}
 
 //获取地图中的所有地图点
-vector<MapPoint*> Map::GetAllMapPoints(bool NeedObjectMP)
+vector<MapPoint*> Map::GetAllMapPoints(bool bNeedObject)
 {
     unique_lock<mutex> lock(mMutexMap);
     vector<MapPoint*> tmp;
     for(set<MapPoint*>::iterator ipMP=mspMapPoints.begin();ipMP!=mspMapPoints.end();ipMP++){
-        if((*ipMP)->mnObjectID>0 && !NeedObjectMP){
+        if((*ipMP)->mnObjectID>0 && !bNeedObject){
             continue;
         }
         tmp.emplace_back((*ipMP));

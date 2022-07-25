@@ -795,7 +795,7 @@ void TemplatedVocabulary<TDescriptor,F>::HKmeansStep(NodeId parent_id,
   // go on with the next level
   if(current_level < m_L)
   {
-    // iterate again with the resulting clusters
+    // MPsiterate again with the resulting clusters
     const vector<NodeId> &children_ids = m_nodes[parent_id].children;
     for(unsigned int i = 0; i < clusters.size(); ++i)
     {

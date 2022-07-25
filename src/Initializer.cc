@@ -84,8 +84,8 @@ namespace ORB_SLAM2
  * @return true                     该帧可以成功初始化，返回true
  * @return false                    该帧不满足初始化条件，返回false
  */
-    bool Initializer::GetInitializationMatrixRT(const Frame &CurrentFrame, const vector<int> &vMatches12, cv::Mat &R21, cv::Mat &t21,
-                                                vector<cv::Point3f> &vP3D, vector<bool> &vbTriangulated)
+    bool Initializer::GetInitializationMatrixRTAndMPs(const Frame &CurrentFrame, const vector<int> &vMatches12, cv::Mat &R21, cv::Mat &t21,
+                                                      vector<cv::Point3f> &vP3D, vector<bool> &vbTriangulated)
     {
         // Fill structures with current keypoints and matches with reference frame
         // Reference Frame: 1, Current Frame: 2

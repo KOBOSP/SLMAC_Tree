@@ -264,6 +264,9 @@ void LocalMapping::CullRecentAddedMapPoints()
     }
 }
 
+
+
+
 /**
  * @brief 用当前关键帧与相邻关键帧通过三角化产生新的地图点，使得跟踪更稳
  * 
@@ -274,11 +277,9 @@ void LocalMapping::CreateNewMapPointsAndObjectsByNerborKFs()
     // nn表示搜索最佳共视关键帧的数目
     // 不同传感器下要求不一样,单目的时候需要有更多的具有较好共视关系的关键帧来建立地图
     int nn = 10;
-    if(mbMonocular)
-        nn=20;
-
     // Step 1：在当前关键帧的共视关键帧中找到共视程度最高的nn帧相邻关键帧
-    const vector<KeyFrame*> vpNeighKFs = mpCurrentKeyFrame->GetCovisibilityForefrontKeyFrames(nn);
+    vector<KeyFrame*> vpNeighKFs = mpCurrentKeyFrame->GetCovisibilityForefrontKeyFrames(nn);
+    mpMap->GetNearestKeyFramesByGps(nn, vpNeighKFs, mpCurrentKeyFrame->mTgpsFrame);
 
     // 特征点匹配配置 最佳距离 < 0.6*次佳距离，比较苛刻了。不检查旋转
     ORBmatcher matcher(0.6,false); 
@@ -333,7 +334,7 @@ void LocalMapping::CreateNewMapPointsAndObjectsByNerborKFs()
         // Search matches that fullfil epipolar constraint
         // Step 5：通过词袋对两关键帧的未匹配的特征点快速匹配，用极线约束抑制离群点，生成新的匹配点对
         vector<pair<size_t,size_t> > vMatchedIndices;
-        matcher.SearchNewKFMatchPointByKFF12(mpCurrentKeyFrame, pKF2, F12, vMatchedIndices);
+        matcher.SearchNewKFMatchPointByKFBoWAndF12(mpCurrentKeyFrame, pKF2, F12, vMatchedIndices);
 
         cv::Mat Rcw2 = pKF2->GetRotation();
         cv::Mat Rwc2 = Rcw2.t();
@@ -474,7 +475,6 @@ void LocalMapping::CreateNewMapPointsAndObjectsByNerborKFs()
             // Triangulation is succesfull
             // Step 6.8：三角化生成3D点成功，构造成MapPoint
             MapPoint* pMP = new MapPoint(x3D,mpCurrentKeyFrame,mpMap,kp1.class_id,kp1.size);
-
             // Step 6.9：为该MapPoint添加属性：
             // a.观测到该MapPoint的关键帧
             pMP->AddObservation(mpCurrentKeyFrame,idx1);            
@@ -490,6 +490,9 @@ void LocalMapping::CreateNewMapPointsAndObjectsByNerborKFs()
             // 这些MapPoints都会经过MapPointCulling函数的检验
             if(pMP->mnObjectID<0){
                 mlpRecentAddedMapPoints.emplace_back(pMP);
+            }
+            else{
+                cout<<"------pMP->mnId"<<pMP->mnId<<endl;
             }
         }
     }

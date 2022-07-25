@@ -63,7 +63,6 @@ cv::Mat FrameDrawer::DrawFrame()
     vector<cv::KeyPoint> vCurrentKeys; // KeyPoints in current frame
     vector<bool> vbVO, vbMap; // Tracked MapPoints in current frame
     int state; // Tracking state
-    bool mMotionMethodTrackOK;
 
     //Copy variables within scoped mutex
     // step 1：将成员变量赋值给局部变量（包括图像、状态、其它的提示）
@@ -85,7 +84,6 @@ cv::Mat FrameDrawer::DrawFrame()
         }
         else if(mState==Tracking::OK){
             //当系统处于运动追踪状态时
-            mMotionMethodTrackOK = mbMotionMethodTrackOK;
             vbVO = mvbVO;
             vbMap = mvbMap;
         }
@@ -116,16 +114,11 @@ cv::Mat FrameDrawer::DrawFrame()
     {
         //当前帧追踪到的特征点计数
         mnTrackedTarget=0;
-        mnTrackedMap=0;
-        mnTrackedVO=0;
 
         // Draw keypoints
         const float r = 5;
         const int n = vCurrentKeys.size();
         cv::Scalar PointColor=cv::Scalar(0,255,0);
-        if(mMotionMethodTrackOK== false){
-            PointColor=cv::Scalar(0,0,255);
-        }
         for(int i=0;i<n;i++){
             if(vCurrentKeys[i].class_id>0){
                 cv::circle(im, vCurrentKeys[i].pt, vCurrentKeys[i].size, cv::Scalar(mvColorSet[vCurrentKeys[i].class_id % mnColorSetSize].x,
@@ -147,14 +140,12 @@ cv::Mat FrameDrawer::DrawFrame()
                 if(vbMap[i]){
                     // 通道顺序为bgr，地图中MapPoints用绿色圆点表示，并用绿色小方框圈住
                     cv::rectangle(im,pt1,pt2,PointColor);
-                    mnTrackedMap++;
                 }
                 //BUG 但是不知道为什么，我在实际运行中时没有发现有蓝色的点存在啊
                 else // This is match to a "visual odometry" MapPoint created in the last frame
                 {
                     // 通道顺序为bgr， NOTICE 仅当前帧能观测到的MapPoints用蓝色圆点表示，并用蓝色小方框圈住
                     cv::circle(im,vCurrentKeys[i].pt,r,PointColor);
-                    mnTrackedVO++;
                 }
             }
         }//遍历所有的特征点
@@ -177,10 +168,12 @@ void FrameDrawer::DrawTextInfo(cv::Mat &im, int nState, cv::Mat &imText)
     else if(nState==Tracking::NOT_INITIALIZED)
         s << " TRYING TO INITIALIZE ";
     else if(nState==Tracking::OK){
-        if(!mbOnlyTracking)
-            s << "SLAM MODE |  ";
-        else
-            s << "LOCALIZATION | ";
+        if(mnMotionOrGpsOrRefKFTrackOK==1)
+            s << "Motion | ";
+        else if(mnMotionOrGpsOrRefKFTrackOK==2)
+            s << "Gps | ";
+        else if(mnMotionOrGpsOrRefKFTrackOK==3)
+            s << "RefKF | ";
         int nKFs = mpMap->GetKeyFramesNumInMap();
         int nMPs = mpMap->GetMapPointsNumInMap();
         int nObs = mpMap->GetObcjectsNumInMap();
@@ -225,15 +218,17 @@ void FrameDrawer::DrawTextInfo(cv::Mat &im, int nState, cv::Mat &imText)
  * @brief 将跟踪线程的数据拷贝到绘图线程（图像、特征点、地图、跟踪状态）
  * 
  * @param[in] pTracker 跟踪线程指针
+ * @param[out] the number point be traced VO, to judge badVO
+
  */
-void FrameDrawer::UpdateImgKPMPState(Tracking *pTracker)
+int FrameDrawer::UpdateImgKPMPState(Tracking *pTracker)
 {
     unique_lock<mutex> lock(mMutex);
     //拷贝跟踪线程的图像
     pTracker->mImgGray.copyTo(mIm);
     //拷贝跟踪线程的特征点
     mvCurrentKeys=pTracker->mCurrentFrame.mvKeys;
-    mbMotionMethodTrackOK=pTracker->mbMotionMethodTrackOK;
+    mnMotionOrGpsOrRefKFTrackOK=pTracker->mnMotionOrGpsOrRefKFTrackOK;
     mnKeyNumInFrame = mvCurrentKeys.size();
     mvbVO = vector<bool>(mnKeyNumInFrame, false);
     mvbMap = vector<bool>(mnKeyNumInFrame, false);
@@ -248,26 +243,34 @@ void FrameDrawer::UpdateImgKPMPState(Tracking *pTracker)
     }
     //如果上一帧是在正常跟踪
     else if(pTracker->mLastProcessedState==Tracking::OK){
+        mnTrackedMap=0;
+        mnTrackedVO=0;
         //获取当前帧地图点的信息
         for(int i=0; i < mnKeyNumInFrame; i++){
             MapPoint* pMP = pTracker->mCurrentFrame.mvpMapPoints[i];
             if(pMP){
                 if(!pTracker->mCurrentFrame.mvbOutlier[i]){
                     //该mappoints可以被多帧观测到，则为有效的地图点
-                    if(pMP->GetObservations() > 2)
+                    if(pMP->GetObservations() > 2){
                         mvbMap[i]=true;
-                    else
-                    //否则表示这个特征点是在当前帧中第一次提取得到的点
+                        mnTrackedMap++;
+                    }
+                    else{
+                        //否则表示这个特征点是在当前帧中第一次提取得到的点
                         mvbVO[i]=true;
+                        mnTrackedVO++;
+                    }
+
                 }
             }
         }
     }
     mdLastTimeStamp=mdCurrentTimeStamp;
-    mnImgfps=pTracker->mnImgfps;
+    mnImgfps=pTracker->mnfpsByCfgFile;
     mdCurrentTimeStamp=pTracker->mCurrentFrame.mTimeStamp;
     //更新追踪线程的跟踪状态
     mState=static_cast<int>(pTracker->mLastProcessedState);
+    return mnTrackedVO;
 }
 
 } //namespace ORB_SLAM

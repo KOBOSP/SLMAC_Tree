@@ -79,27 +79,8 @@ public:
      * @param[in] th                        搜索范围
      * @return int                          成功匹配的数目
      */
-    int SearchFMatchPointByProjectMapPoint(Frame &F, const std::vector<MapPoint*> &vpMapPoints, bool bFactor, const float th= 3);
+    int SearchFMatchPointByProjectMapPoint(Frame &CurrentFrame, const vector<MapPoint*> &vpMapPoints, const float th, bool bNeedObject);
 
-    // Project MapPoints tracked in last frame into the current frame and search matches.
-    // Used to track from previous frame (Tracking)
-    /**
-     * @brief 将上一帧跟踪的地图点投影到当前帧，并且搜索匹配点。用于跟踪前一帧
-     * 步骤
-     * Step 1 建立旋转直方图，用于检测旋转一致性
-     * Step 2 计算当前帧和前一帧的平移向量
-     * Step 3 对于前一帧的每一个地图点，通过相机投影模型，得到投影到当前帧的像素坐标
-     * Step 4 根据相机的前后前进方向来判断搜索尺度范围
-     * Step 5 遍历候选匹配点，寻找距离最小的最佳匹配点 
-     * Step 6 计算匹配点旋转角度差所在的直方图
-     * Step 7 进行旋转一致检测，剔除不一致的匹配
-     * @param[in] CurrentFrame          当前帧
-     * @param[in] LastFrame             上一帧
-     * @param[in] th                    搜索范围阈值，默认单目为7，双目15
-     * @param[in] bMono                 是否为单目
-     * @return int                      成功匹配的数量
-     */
-    int SearchFMatchPointByProjectLastFrame(Frame &CurrentFrame, const Frame &LastFrame, const float th, const bool bMono);
 
     // Project MapPoints seen in KeyFrame into the Frame and search matches.
     // Used in relocalisation (Tracking)
@@ -127,7 +108,7 @@ public:
      * @param[in] th                搜索窗口的阈值
      * @return int                  匹配的特征点数目
      */
-    int SearchKFNewMatchPointBySim3andLocalMP(KeyFrame* pKF, cv::Mat Scw, const std::vector<MapPoint*> &vpPoints, std::vector<MapPoint*> &vpMatched, int th, bool NeedObjectMP);
+    int SearchKFNewMatchPointBySim3andLocalMP(KeyFrame* pKF, cv::Mat Scw, const std::vector<MapPoint*> &vpPoints, std::vector<MapPoint*> &vpMatched, int th, bool bNeedObject);
 
     // Search matches between MapPoints in a KeyFrame and ORB in a Frame.
     // Brute force constrained to ORB that belong to the same vocabulary node (at a certain level)
@@ -146,7 +127,7 @@ public:
     * @return                   成功匹配的数量
     */
     int SearchFMatchPointByKFBoW(KeyFrame *pKF, Frame &F, std::vector<MapPoint*> &vpMapPointMatches);
-    int SearchKFMatchPointByKFBoW(KeyFrame *pKF1, KeyFrame* pKF2, std::vector<MapPoint*> &vpMatches12, bool NeedObjectMP);
+    int SearchKFMatchPointByKFBoW(KeyFrame *pKF1, KeyFrame* pKF2, std::vector<MapPoint*> &vpMatches12, bool bNeedObject);
 
     // Matching for the Map Initialization (only used in the monocular case)
     /**
@@ -166,7 +147,7 @@ public:
      * @param[in] windowSize                搜索窗口
      * @return int                          返回成功匹配的特征点数目
      */
-    int SearchMatchKPInInitialization(Frame &F1, Frame &F2, std::vector<cv::Point2f> &vbPrevMatched, std::vector<int> &vnMatches12, int nImageIsSeq, int windowSize=10);
+    int SearchMatchKPInInitialization(Frame &F1, Frame &F2, std::vector<cv::Point2f> &vbPrevMatched, std::vector<int> &vnMatches12, int windowSize=10);
 
     // Matching to triangulate new MapPoints. Check Epipolar Constraint.
     /**
@@ -179,8 +160,8 @@ public:
      * @return              成功匹配的数量
      */
     int SearchKFMatchObjectByKFTargetId(KeyFrame *pKF1, KeyFrame *pKF2, vector<pair<size_t, size_t> > &vMatchedPairs);
-    int SearchNewKFMatchPointByKFF12(KeyFrame *pKF1, KeyFrame* pKF2, cv::Mat F12,
-                                     std::vector<pair<size_t, size_t> > &vMatchedPairs);
+    int SearchNewKFMatchPointByKFBoWAndF12(KeyFrame *pKF1, KeyFrame* pKF2, cv::Mat F12,
+                                           std::vector<pair<size_t, size_t> > &vMatchedPairs);
 
     // Search matches between MapPoints seen in KF1 and KF2 transforming by a Sim3 [s12*R12|t12]
     // NOTE In the stereo and RGB-D case, s12=1
@@ -196,7 +177,7 @@ public:
      * @param[in] th                搜索窗口阈值
      * @return int                  匹配到的点的个数
      */
-    int SearchNewKFMatchPointByKFMutualSim3(KeyFrame* pKF1, KeyFrame* pKF2, std::vector<MapPoint *> &vpMatches12, const float &s12, const cv::Mat &R12, const cv::Mat &t12, const float th, bool NeedObjectMP);
+    int SearchNewKFMatchPointByKFMutualSim3(KeyFrame* pKF1, KeyFrame* pKF2, std::vector<MapPoint *> &vpMatches12, const float &s12, const cv::Mat &R12, const cv::Mat &t12, const float th, bool bNeedObject);
 
     // Project MapPoints into KeyFrame and search for duplicated MapPoints.
     /**

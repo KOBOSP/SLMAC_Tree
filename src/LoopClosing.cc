@@ -49,8 +49,8 @@ namespace ORB_SLAM2
 // 构造函数
 LoopClosing::LoopClosing(Map *pMap, KeyFrameDatabase *pDB, ORBVocabulary *pVoc, int nMaxObjectID, const string &strSettingPath, const bool bFixScale):
         mbResetRequested(false), mbFinishRequested(false), mbFinished(true), mpMap(pMap),
-        mpKeyFrameDB(pDB), mpORBVocabulary(pVoc), mpMatchedKF(NULL), mLastMapPointLoopKFId(0), mLastMapPointCoSeeKFId(0), mbRunningGBA(false),
-        mbStopGBA(false), mpThreadGBA(NULL), mbFixScale(bFixScale), mnFullBAIdx(0), mnMaxObjectID(nMaxObjectID)
+        mpKeyFrameDB(pDB), mpORBVocabulary(pVoc), mpMatchedKF(static_cast<KeyFrame*>(NULL)), mLastMapPointLoopKFId(0), mLastMapPointCoSeeKFId(0), mbRunningGBA(false),
+        mbStopGBA(false), mpThreadGBA(static_cast<thread*>(NULL)), mbFixScale(bFixScale), mnFullBAIdx(0), mnMaxObjectID(nMaxObjectID)
 {
     // 连续性阈值
     cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);
@@ -103,25 +103,31 @@ void LoopClosing::Run()
             // Loopclosing中的关键帧是LocalMapping发送过来的，LocalMapping是Tracking中发过来的
             // 在LocalMapping中通过 InsertKeyFrameInQueue 将关键帧插入闭环检测队列mlpLoopKeyFrameQueue
             // Step 1 查看闭环检测队列mlpLoopKeyFrameQueue中有没有关键帧进来
-            if (CheckNewKeyFrames()) {
+            if (CheckNewKeyFrames()) {//have new KF
                 msLinkedObjectID.clear();
                 // Detect loop candidates and check covisibility consistency
+                cout<<"CheckNewKeyFrames"<<endl;
                 if (DetectLoopByMapPoint()) {
+                    cout<<"DetectLoopByMapPoint"<<endl;
                     // Compute similarity transformation [sR|t]
                     // In the stereo/RGBD case s=1
                     if (ComputeBoWAndSim3ToMatchPointsByMapPoint()) {
+                        cout<<"ComputeBoWAndSim3ToMatchPointsByMapPoint"<<endl;
                         // Perform loop fusion and pose graph optimization
                         CorrectLoopByMapPoint();
                     }
                 }
                 if(mpCurrentKF){
+                    cout<<"mpCurrentKF"<<endl;
                     if(!mpCurrentKF->isBad()){
-                        FuseSameIdObjectInGlobalMap();
                         LinkObjectIdByProjectGlobalMapToCurrentKF();
                     }
                 }
+                //UpdataGPSToVOSim3InLoopClosing();
+
             }
-            else{
+            else{//dont have new KF
+                cout<<"LinkObjectIdByProjectGlobalMapToAllKF"<<endl;
                 LinkObjectIdByProjectGlobalMapToAllKF();
                 FuseSameIdObjectInGlobalMap();
             }
@@ -145,6 +151,42 @@ void LoopClosing::Run()
 	}
     // 运行到这里说明有外部线程请求终止当前线程,在这个函数中执行终止当前线程的一些操作
     SetFinish();
+}
+
+/**
+ * @brief use LocalKeyFrames to refresh the sim3 matrix from gps to VO
+ *
+ */
+
+void LoopClosing::UpdataGPSToVOSim3InLoopClosing(){
+    if(mpTracker->mState!=Tracking::OK){
+        return;
+    }
+    cout<<"mpCurrentKF"<<endl;
+    Sim3Solver* pSim3Solvers = new Sim3Solver();
+    vector<KeyFrame*> vAllKFInMap = mpMap->GetAllKeyFrames();
+    std::vector<cv::Mat> vP1s;
+    std::vector<cv::Mat> vP2s;
+    vector<bool> vbInliers;
+    int nInliers;
+    for(vector<KeyFrame*>::iterator itKF=vAllKFInMap.begin();itKF!=vAllKFInMap.end();itKF++){
+        if(!(*itKF)){
+            continue;
+        }
+        if((*itKF)->isBad()){
+            continue;
+        }
+        cv::Mat temp;
+        (*itKF)->mTgpsFrame.copyTo(temp);
+        vP1s.emplace_back(temp.clone());
+        (*itKF)->GetTranslation().copyTo(temp);
+        vP2s.emplace_back(temp.clone());
+    }
+    cv::Mat Sim3VoGps = pSim3Solvers->KFsiterate(vP1s, vP2s, 100, vbInliers, nInliers);//P1:Gps, P2Vo
+    if(!Sim3VoGps.empty()&&nInliers>mpTracker->mnSim3Inliers){
+        Sim3VoGps.copyTo(mpTracker->mSim3VoGps);
+        mpTracker->mnSim3Inliers=nInliers;
+    }
 }
 
 
@@ -601,7 +643,7 @@ bool LoopClosing::ComputeBoWAndSim3ToMatchPointsByMapPoint()
 
     // We compute first ORB matches for each candidate
     // If enough matches are found, we setup a Sim3Solver
-    ORBmatcher matcher(0.75,true);
+    ORBmatcher matcher(0.8,true);
 
     // 存储每一个候选帧的Sim3Solver求解器
     vector<Sim3Solver*> vpSim3Solvers;
@@ -635,6 +677,7 @@ bool LoopClosing::ComputeBoWAndSim3ToMatchPointsByMapPoint()
         // vvpMPMatchesByBoW 是匹配特征点对应的地图点,本质上来自于候选闭环帧
         int nmatches = matcher.SearchKFMatchPointByKFBoW(mpCurrentKF, pKF, vvpMPMatchesByBoW[i], false);
         // 粗筛：匹配的特征点数太少，该候选帧剔除
+        cout<<"nmatches<mnSingleMatchKeyPoint/2<<mpCurrentKF->mnId<<pKF->mnId "<<nmatches<<" "<<mnSingleMatchKeyPoint/2<<" "<<mpCurrentKF->mnId<<" "<<pKF->mnId<<endl;
         if(nmatches<mnSingleMatchKeyPoint/2){
             vbDiscarded[i] = true;
         }
@@ -669,7 +712,8 @@ bool LoopClosing::ComputeBoWAndSim3ToMatchPointsByMapPoint()
         // Step 2.1 取出从 Step 1.3 中为当前候选帧构建的 Sim3Solver 并开始迭代
         Sim3Solver* pSolver = vpSim3Solvers[idx];
         // 最多迭代5次，返回的Scm是候选帧pKF到当前帧mpCurrentKF的Sim3变换（T12）
-        cv::Mat Scm = pSolver->iterate(5,bNoMore,vbInliers,nInliers);
+        cv::Mat Scm = pSolver->MPsiterate(50, bNoMore, vbInliers, nInliers);
+        cout<<"nInliers "<<nInliers<<endl;
         // If Ransac reachs max. iterations discard keyframe
         // 总迭代次数达到最大限制还没有求出合格的Sim3变换，该候选帧剔除
         if(bNoMore){
@@ -1160,7 +1204,7 @@ bool LoopClosing::ComputeBoWAndSim3ToMatchPointsByObject()
         // Step 2.1 取出从 Step 1.3 中为当前候选帧构建的 Sim3Solver 并开始迭代
         Sim3Solver* pSolver = vpSim3Solvers[idx];
         // 最多迭代5次，返回的Scm是候选帧pKF到当前帧mpCurrentKF的Sim3变换（T12）
-        cv::Mat Scm = pSolver->iterate(5,bNoMore,vbInliers,nInliers);
+        cv::Mat Scm = pSolver->MPsiterate(5, bNoMore, vbInliers, nInliers);
         // If Ransac reachs max. iterations discard keyframe
         // 总迭代次数达到最大限制还没有求出合格的Sim3变换，该候选帧剔除
         if(bNoMore){

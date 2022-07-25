@@ -67,11 +67,10 @@ public:
 
 public:
 
-    // GetInitializationMatrixRT the SLAM system. It launches the Local Mapping, Loop Closing and Viewer threads.
+    // GetInitializationMatrixRTAndMPs the SLAM system. It launches the Local Mapping, Loop Closing and Viewer threads.
     //构造函数，用来初始化整个系统。
     System(const string &strVocFile,            //指定ORB字典文件的路径
            const string &strSettingsFile,       //指定配置文件的路径
-           const string &strFrameTargetFile,
            const eSensor sensor,                //指定所使用的传感器类型
            const bool bUseViewer = true);       //指定是否使用可视化界面 TODO 
 
@@ -84,8 +83,9 @@ public:
     // Returns the camera pose (empty if tracking fails).
     cv::Mat TrackMonocular(const cv::Mat &im,           //图像
                            const double &timestamp,
-                           int FrameID,
-                           cv::Mat Trtk);    //时间戳
+                           long unsigned int FrameID,
+                           vector<cv::KeyPoint> vTarsInFrame,
+                           cv::Mat TgpsFrame);    //时间戳
 
     // This stops local mapping thread (map building) and performs only camera tracking.
     //使能定位模式，此时仅有运动追踪部分在工作，局部建图功能则不工作

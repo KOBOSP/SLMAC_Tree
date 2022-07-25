@@ -36,14 +36,11 @@
 
 namespace ORB_SLAM2
 {
-
-// 下一个关键帧的id
-long unsigned int KeyFrame::nNextId=0;
 int KeyFrame::mnMinConnectedWeight=15;
 
 //关键帧的构造函数
 KeyFrame::KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB):
-        mnFrameId(F.mnId), mTimeStamp(F.mTimeStamp), mnGridCols(FRAME_GRID_COLS), mnGridRows(FRAME_GRID_ROWS),
+        mnId(F.mnId), mTimeStamp(F.mTimeStamp), mnGridCols(FRAME_GRID_COLS), mnGridRows(FRAME_GRID_ROWS),
         mfGridElementWidthInv(F.mfGridElementWidthInv), mfGridElementHeightInv(F.mfGridElementHeightInv),
         mnTrackReferenceForFrame(0), mnFuseCandidateInLM(0), mnFuseCandidateInLC(0), mnBALocalForKF(0), mnBAFixedForKF(0),
         mnFrameIDShareWord(0), mnShareWord(0), mnRelocQuery(0), mnRelocWords(0), mnBAGlobalForKF(0),
@@ -52,23 +49,18 @@ KeyFrame::KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB):
         mBowVec(F.mBowVec), mFeatVec(F.mFeatVec), mnScaleLevels(F.mnScaleLevels), mfScaleFactor(F.mfScaleFactor),
         mfLogScaleFactor(F.mfLogScaleFactor), mvScaleFactors(F.mvScaleFactors), mvLevelSigma2(F.mvLevelSigma2),
         mvInvLevelSigma2(F.mvInvLevelSigma2), mnMinX(F.mnMinX), mnMinY(F.mnMinY), mnMaxX(F.mnMaxX),
-        mnMaxY(F.mnMaxY), mK(F.mK), mvpMapPoints(F.mvpMapPoints), mpKeyFrameDB(pKFDB), mTrtk(F.mTrtk.clone()),
-        mpORBvocabulary(F.mpORBvocabulary), mbFirstConnection(true), mpParent(NULL), mbNotEraseInLoop(false),
+        mnMaxY(F.mnMaxY), mK(F.mK), mvpMapPoints(F.mvpMapPoints), mpKeyFrameDB(pKFDB), mTgpsFrame(F.mtFrameGps.clone()),
+        mpORBvocabulary(F.mpORBvocabulary), mbFirstConnection(true), mpParent(static_cast<KeyFrame*>(NULL)), mbNotEraseInLoop(false),
         mbToBeErased(false), mbBad(false),
         mpMap(pMap)
 {
-    // 获取id
-    mnId=nNextId++;
-
     // 根据指定的普通帧, 初始化用于加速匹配的网格对象信息; 其实就把每个网格中有的特征点的索引复制过来
     mGrid.resize(mnGridCols);
-    for(int i=0; i<mnGridCols;i++)
-    {
+    for(int i=0; i<mnGridCols;i++){
         mGrid[i].resize(mnGridRows);
         for(int j=0; j<mnGridRows; j++)
             mGrid[i][j] = F.mGrid[i][j];
     }
-
     // 设置当前关键帧的位姿
     SetPose(F.mTcw);
 }
@@ -366,15 +358,15 @@ int KeyFrame::GetNumMapPointsBigObs(const int &minObs)
 }
 
 // 获取当前关键帧的具体的地图点
-vector<MapPoint*> KeyFrame::GetAllMapPointVectorInKF(bool NeedObjectMP)
+vector<MapPoint*> KeyFrame::GetAllMapPointVectorInKF(bool bNeedObject)
 {
     unique_lock<mutex> lock(mMutexFeatures);
     vector<MapPoint*> tmp;
     for(int i=0;i<mnKeyPointNum;i++){
         MapPoint* pMP = mvpMapPoints[i];// because return MP is in sequence, so should not ignore it even NULL
         if(pMP){
-            if(pMP->GetbBad()||(pMP->mnObjectID>0 && !NeedObjectMP)){
-                pMP = NULL;
+            if(pMP->GetbBad()||(pMP->mnObjectID>0 && !bNeedObject)){
+                pMP = static_cast<MapPoint *>(NULL);
             }
         }
         tmp.emplace_back(pMP);
@@ -405,7 +397,7 @@ MapPoint* KeyFrame::GetMapPointByIndex(const size_t &idx)
 {
     unique_lock<mutex> lock(mMutexFeatures);
     if(idx>mnKeyPointNum){
-        return NULL;
+        return static_cast<MapPoint *>(NULL);
     }
     else{
         return mvpMapPoints[idx];
@@ -462,7 +454,7 @@ void KeyFrame::UpdateConnectedKeyFrameAndWeights(){
     // If the counter is greater than threshold addKFtoDB connection
     // In case no keyframe counter is over threshold addKFtoDB the one with maximum counter
     int nmax=0; // 记录最高的共视程度
-    KeyFrame* pKFmax=NULL;
+    KeyFrame* pKFmax=static_cast<KeyFrame*>(NULL);
 
     // vPairs记录与其它关键帧共视帧数大于th的关键帧
     // pair<int,KeyFrame*>将关键帧的权重写在前面，关键帧写在后面方便后面排序

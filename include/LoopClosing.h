@@ -117,6 +117,7 @@ public:
 protected:
     void FuseSameIdObjectInGlobalMap();
     int FuseMapPointsBySeeSameObjectId();
+    void UpdataGPSToVOSim3InLoopClosing();
     void LinkObjectIdByProjectGlobalMapToCurrentKF();
     void LinkObjectIdByProjectGlobalMapToAllKF();
     int GetRootIdxToSameObjectIdMap(int idx);

@@ -51,6 +51,8 @@ namespace ORB_SLAM2
  * @param[in] vpMatched12       通过词袋模型加速匹配所得到的,两帧特征点的匹配关系所得到的地图点,本质上是来自于候选闭环关键帧的地图点
  * @param[in] bFixScale         当前传感器类型的输入需不需要计算尺度。单目的时候需要，双目和RGBD的时候就不需要了
  */
+ Sim3Solver::Sim3Solver(){
+ }
 Sim3Solver::Sim3Solver(KeyFrame *pKF1, KeyFrame *pKF2, const vector<MapPoint *> &vpMatched12, const bool bFixScale):
     mnIterations(0), mnBestInliers(0), mbFixScale(bFixScale){
     mpKF1 = pKF1;       // 当前关键帧
@@ -129,10 +131,8 @@ Sim3Solver::Sim3Solver(KeyFrame *pKF1, KeyFrame *pKF2, const vector<MapPoint *> 
     // Step 3 将相机坐标系下的三维地图点分别投影到各自相机的二维图像坐标，用于后面和Sim3投影的比较，筛选内点
     FromCameraToImage(mvX3Dc1,mvP1im1,mK1);
     FromCameraToImage(mvX3Dc2,mvP2im2,mK2);
-
-    // Step 4 设置默认的RANSAC参数,避免在调用的时候因为忘记设置导致崩溃
-    SetRansacParameters();
 }
+
 
 /**
  * @brief 设置进行RANSAC时的参数
@@ -190,7 +190,7 @@ void Sim3Solver::SetRansacParameters(double probability, int minInliers, int max
  * @param[in] nInliers              内点数目
  * @return cv::Mat                  计算得到的Sim3矩阵
  */
-cv::Mat Sim3Solver::iterate(int nIterations, bool &bNoMore, vector<bool> &vbInliers, int &nInliers)
+cv::Mat Sim3Solver::MPsiterate(int nIterations, bool &bNoMore, vector<bool> &vbInliers, int &nInliers)
 {
     bNoMore = false;                        // 现在还没有达到最好的效果
     vbInliers = vector<bool>(mN1,false);    // 的确和最初传递给这个解算器的地图点向量是保持一致
@@ -198,6 +198,7 @@ cv::Mat Sim3Solver::iterate(int nIterations, bool &bNoMore, vector<bool> &vbInli
 
     // Step 1 如果匹配点比要求的最少内点数还少，不满足Sim3 求解条件，返回空
     // mRansacMinInliers 表示RANSAC所需要的最少内点数目
+    cout<<"N<mRansacMinInliers "<<N<<" "<<mRansacMinInliers<<endl;
     if(N<mRansacMinInliers){
         bNoMore = true;  // 表示求解失败
         return cv::Mat();
@@ -219,8 +220,9 @@ cv::Mat Sim3Solver::iterate(int nIterations, bool &bNoMore, vector<bool> &vbInli
     // 条件1: 已经进行的总迭代次数还没有超过限制的最大总迭代次数
     // 条件2: 当前迭代次数还没有超过理论迭代次数
     while(nCurrentIterations<mRansacMaxIts && nCurrentIterations<nIterations){
-        nCurrentIterations++;// 这个函数中迭代的次数
+        cout<<"nCurrentIterations<mRansacMaxIts && nCurrentIterations<nIterations "<<nIterations<<" "<<mRansacMaxIts<<" "<<nCurrentIterations<<endl;
 
+        nCurrentIterations++;// 这个函数中迭代的次数
         // 记录所有有效（可以采样）的候选三维点索引
         vAvailableIndices = mvAllIndices;
 
@@ -230,7 +232,7 @@ cv::Mat Sim3Solver::iterate(int nIterations, bool &bNoMore, vector<bool> &vbInli
             // DBoW3中的随机数生成函数
             int randi = DUtils::Random::RandomInt(0, vAvailableIndices.size()-1);
             int idx = vAvailableIndices[randi];
-
+            cout<<randi<<" randi-- ";
             // P3Dc1i和P3Dc2i中点的排列顺序：
             // x1 x2 x3 ...
             // y1 y2 y3 ...
@@ -245,7 +247,8 @@ cv::Mat Sim3Solver::iterate(int nIterations, bool &bNoMore, vector<bool> &vbInli
         // Step 2.2 根据随机取的两组匹配的3D点，计算P3Dc2i 到 P3Dc1i 的Sim3变换
         ComputeSim3(P3Dc1i,P3Dc2i);
         // Step 2.3 对计算的Sim3变换，通过投影误差进行inlier检测
-        CheckInliers();
+        CheckMPInliers();
+        cout<<"mnInliersi>=mnBestInliers"<<mnInliersi<<" "<<mnBestInliers<<endl;
         // Step 2.4 记录并更新最多的内点数目及对应的参数
         if(mnInliersi>=mnBestInliers){
             mvbBestInliers = mvbInliersi;
@@ -256,7 +259,7 @@ cv::Mat Sim3Solver::iterate(int nIterations, bool &bNoMore, vector<bool> &vbInli
             mBestScale = ms12i;
         } // 更新最多的内点数目
     } // 迭代循环
-
+    cout<<"mnBestInliers>mRansacMinInliers "<<mnBestInliers<<" "<<mRansacMinInliers<<endl;
     if(mnBestInliers>mRansacMinInliers){
         // 返回值,告知得到的内点数目
         nInliers = mnBestInliers;
@@ -276,7 +279,122 @@ cv::Mat Sim3Solver::iterate(int nIterations, bool &bNoMore, vector<bool> &vbInli
 }
 
 
- 
+/**
+ * @brief 根据两组many匹配的3D点,计算P2到P1的Sim3变换
+ * @brief Ransac求解cv::Mat &P1和cv::Mat &P2之间Sim3，函数返回P2到P1的Sim3变换
+ *
+ * @param[in] P1    匹配的3D点(三个,每个的坐标都是列向量形式,三个点组成了3x3的矩阵)(当前关键帧)Gps
+ * @param[in] P2    匹配的3D点(闭环关键帧)Vo
+ * @param[in] nIterations           设置的最大迭代次数
+ * @param[in] bNoMore               为true表示穷尽迭代还没有找到好的结果，说明求解失败
+ * @param[in] vbInliers             标记是否是内点
+ * @param[in] nInliers              内点数目
+ * @return cv::Mat                  计算得到的Sim3矩阵
+ */
+cv::Mat Sim3Solver::KFsiterate(std::vector<cv::Mat> &vP1s, std::vector<cv::Mat> &vP2s, int nIterations, vector<bool> &vbInliers, int &nInliers){
+    int nPMostNum=vP1s.size();
+    // Step 1 如果匹配点比要求的最少内点数还少，不满足Sim3 求解条件，返回空
+    if(nPMostNum<15){
+        return cv::Mat();
+    }
+    mbFixScale=false;
+    mnBestInliers=-1;
+    // 可以使用的点对的索引,为了避免重复使用
+    vector<size_t> vAvailableIndices;
+    mvAllIndices.clear();
+    mvAllIndices.reserve(nPMostNum);
+    mvbInliersi.clear();
+    mvbInliersi.resize(nPMostNum);
+    vbInliers = vector<bool>(nPMostNum,false);    // 的确和最初传递给这个解算器的地图点向量是保持一致
+    for(int idx=0;idx<nPMostNum;idx++){
+        mvAllIndices.emplace_back(idx);
+        mvbInliersi.emplace_back(false);
+    }
+
+    // 随机选择的来自于这两个帧的三对匹配点
+    cv::Mat P3Dc1i(3,3,CV_32F);
+    cv::Mat P3Dc2i(3,3,CV_32F);
+
+    int nCurrentIterations = 0;
+    // Step 2 随机选择三个点，用于求解后面的Sim3
+    while(nCurrentIterations<nIterations){
+        nCurrentIterations++;// 这个函数中迭代的次数
+        // 记录所有有效（可以采样）的候选三维点索引
+        vAvailableIndices = mvAllIndices;
+        // Get min set of points
+        // Step 2.1 随机取三组点，取完后从候选索引中删掉
+        for(short i = 0; i < 3; ++i){
+            // DBoW3中的随机数生成函数
+            int randi = DUtils::Random::RandomInt(0, vAvailableIndices.size()-1);
+            int idx = vAvailableIndices[randi];
+            // P3Dc1i和P3Dc2i中点的排列顺序：
+            // x1 x2 x3 ...
+            // y1 y2 y3 ...
+            // z1 z2 z3 ...
+            vP2s[idx].copyTo(P3Dc2i.col(i));
+            vP1s[idx].copyTo(P3Dc1i.col(i));
+            // 从"可用索引列表"中删除这个点的索引
+            vAvailableIndices[randi] = vAvailableIndices.back();
+            vAvailableIndices.pop_back();
+        }
+        cv::Mat ray11=P3Dc1i.col(1)-P3Dc1i.col(0);
+        cv::Mat ray12=P3Dc1i.col(2)-P3Dc1i.col(0);
+        cv::Mat ray21=P3Dc2i.col(1)-P3Dc2i.col(0);
+        cv::Mat ray22=P3Dc2i.col(2)-P3Dc2i.col(0);
+        const float cosParallaxRays1 = ray11.dot(ray12)/(cv::norm(ray11)*cv::norm(ray12));
+        if(abs(cosParallaxRays1)<0.1392&&abs(cosParallaxRays1)>0.9903){//cos8= 0.9903 cos10deg=0.9848 cos15=<0.9659 cos 82=0.1392
+            continue;
+        }
+        // Step 2.2 根据随机取的两组匹配的3D点，计算P3Dc2i 到 P3Dc1i 的Sim3变换. modify:mT12i mt12i mR12i ms12i
+        ComputeSim3(P3Dc2i, P3Dc1i);//in Function: 1Vo<-2Gps
+        // Step 2.3 对计算的Sim3变换，通过投影误差进行inlier检测. modify:mnInliersi and mvbInliersi
+        mnInliersi=0;
+        mdInliersTotErr=0;
+        cv::Mat sR21 = mT21i.rowRange(0,3).colRange(0,3);
+        cv::Mat t21 = mT21i.rowRange(0,3).col(3);
+        // 对每个3D地图点进行投影操作
+        for(size_t i=0, iend=nPMostNum; i<iend; i++) {
+            // 首先将对方关键帧的地图点坐标转换到这个关键帧的相机坐标系下
+            cv::Mat P3D2in1 = sR21 * vP2s[i] + t21;//1->2: Vo->Gps
+            double error=cv::norm(P3D2in1-vP1s[i]);
+            if(error<1.5){//small than 1 meter
+                mdInliersTotErr+=error;
+                mnInliersi++;
+                mvbInliersi[i]=true;
+            }
+            else{
+                mvbInliersi[i]= false;
+            }
+        }
+        // Step 2.4 记录并更新最多的内点数目及对应的参数
+        if(mnInliersi>mnBestInliers&&mdBestInliersAvgErr>mdInliersTotErr/mnInliersi){
+            mcosParallaxRays = cosParallaxRays1;
+            mvbBestInliers = mvbInliersi;
+            mnBestInliers = mnInliersi;
+            mdBestInliersAvgErr=mdInliersTotErr/mnInliersi;
+            mBestT12 = mT12i.clone();
+            mBestRotation = mR12i.clone();
+            mBestTranslation = mt12i.clone();
+            mBestScale = ms12i;
+        } // 更新最多的内点数目
+    } // 迭代循环
+    if(mnBestInliers>nPMostNum*1.0/2.0&&mnBestInliers>15){
+        // 返回值,告知得到的内点数目
+        nInliers = mnBestInliers;
+        for(int i=0; i<nPMostNum; i++){
+            if(mvbBestInliers[i]){
+                vbInliers[i] = true;
+            }
+        }
+        cout<<"mdBestInliersAvgErr "<<mdBestInliersAvgErr<<endl;
+        return mBestT12;
+    }
+    else{
+        // Step 3 如果已经达到了最大迭代次数了还没得到满足条件的Sim3，说明失败了，放弃，返回
+        return cv::Mat();   // no more的时候返回的是一个空矩阵
+    }
+}
+
 /**
  * @brief 给出三个点,计算它们的质心以及去质心之后的坐标
  * 
@@ -317,7 +435,6 @@ void Sim3Solver::ComputeSim3(cv::Mat &P1, cv::Mat &P2)
 
     ComputeCentroid(P1,Pr1,O1);
     ComputeCentroid(P2,Pr2,O2);
-
     // Step 2: 计算论文中三维点数目n>3的 M 矩阵。这里只使用了3个点
     // Pr2 对应论文中 r_l,i'，Pr1 对应论文中 r_r,i',计算的是P2到P1的Sim3，论文中是left 到 right的Sim3
     cv::Mat M = Pr2*Pr1.t();
@@ -418,7 +535,6 @@ void Sim3Solver::ComputeSim3(cv::Mat &P1, cv::Mat &P2)
     // Step 8.2 T21
 
     mT21i = cv::Mat::eye(4,4,P1.type());
-
     cv::Mat sRinv = (1.0/ms12i)*mR12i.t();
     sRinv.copyTo(mT21i.rowRange(0,3).colRange(0,3));
     cv::Mat tinv = -sRinv*mt12i;
@@ -427,10 +543,9 @@ void Sim3Solver::ComputeSim3(cv::Mat &P1, cv::Mat &P2)
 
 /**
  * @brief 通过计算的Sim3投影，和自身投影的误差比较，进行内点检测
- * 
+ *
  */
-void Sim3Solver::CheckInliers()
-{
+void Sim3Solver::CheckMPInliers(){
     // 用计算的Sim3 对所有的地图点投影，得到图像点
     vector<cv::Mat> vP1im2, vP2im1;
     Project(mvX3Dc2,vP2im1,mT12i,mK1);// 把2系中的3D经过Sim3变换(mT12i)到1系中计算重投影坐标
@@ -455,6 +570,7 @@ void Sim3Solver::CheckInliers()
             mvbInliersi[i]=false;
     }// 遍历其中的每一对匹配点
 }
+
 
 // 得到计算的旋转矩阵
 cv::Mat Sim3Solver::GetEstimatedRotation()
@@ -494,15 +610,13 @@ void Sim3Solver::Project(const vector<cv::Mat> &vP3Dw, vector<cv::Mat> &vP2D, cv
     vP2D.reserve(vP3Dw.size());
 
     // 对每个3D地图点进行投影操作
-    for(size_t i=0, iend=vP3Dw.size(); i<iend; i++)
-    {
+    for(size_t i=0, iend=vP3Dw.size(); i<iend; i++){
         // 首先将对方关键帧的地图点坐标转换到这个关键帧的相机坐标系下
         cv::Mat P3Dc = Rcw*vP3Dw[i]+tcw;
         // 投影
         const float invz = 1/(P3Dc.at<float>(2));
         const float x = P3Dc.at<float>(0)*invz;
         const float y = P3Dc.at<float>(1)*invz;
-
         vP2D.emplace_back((cv::Mat_<float>(2,1) << fx*x+cx, fy*y+cy));
     }
 }

@@ -55,6 +55,7 @@ public:
      * @param[in] vpMatched12       通过词袋模型加速匹配所得到的,两帧特征点的匹配关系所得到的地图点,本质上是来自于候选闭环关键帧的地图点
      * @param[in] bFixScale         当前传感器类型的输入需不需要计算尺度。单目的时候需要，双目和RGBD的时候就不需要了
      */
+    Sim3Solver();
     Sim3Solver(KeyFrame* pKF1, KeyFrame* pKF2, const std::vector<MapPoint*> &vpMatched12, const bool bFixScale = true);
 
     /**
@@ -76,8 +77,8 @@ public:
      * @param[in] nInliers              内点数目
      * @return cv::Mat                  计算得到的Sim3矩阵
      */
-    cv::Mat iterate(int nIterations, bool &bNoMore, std::vector<bool> &vbInliers, int &nInliers);
-
+    cv::Mat MPsiterate(int nIterations, bool &bNoMore, std::vector<bool> &vbInliers, int &nInliers);
+    cv::Mat KFsiterate(std::vector<cv::Mat> &vP1s, std::vector<cv::Mat> &vP2s, int nIterations, vector<bool> &vbInliers, int &nInliers);
     /**
      * @brief 获取计算的旋转矩阵
      * @return cv::Mat RANSAC过程中计算得到的最优解的旋转矩阵
@@ -117,7 +118,7 @@ protected:
      * @brief 通过计算的Sim3投影，和自身投影的误差比较，进行内点检测
      * 
      */
-    void CheckInliers();
+    void CheckMPInliers();
 
     /**
      * @brief 按照给定的Sim3变换进行投影操作,得到三维点的2D投影点
@@ -167,11 +168,13 @@ protected:
     cv::Mat mT21i;                              // 上面的逆
     std::vector<bool> mvbInliersi;              // 内点标记,下标和N,mvpMapPoints1等一致,用于记录某次迭代过程中的内点情况
     int mnInliersi;                             // 在某次迭代的过程中经过投影误差进行的inlier检测得到的内点数目
-
+    double mdInliersTotErr;
     // Current Ransac State
     int mnIterations;                           // RANSAC迭代次数(当前正在进行的)
+    double mcosParallaxRays;
     std::vector<bool> mvbBestInliers;           // 累计的,多次RANSAC中最好的最多的内点个数时的内点标记
     int mnBestInliers;                          // 最好的一次迭代中,得到的内点个数
+    double mdBestInliersAvgErr;
     cv::Mat mBestT12;                           // 存储最好的一次迭代中得到的变换矩阵
     cv::Mat mBestRotation;                      // 存储最好的一次迭代中得到的旋转
     cv::Mat mBestTranslation;                   // 存储最好的一次迭代中得到的平移

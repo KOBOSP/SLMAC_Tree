@@ -66,7 +66,7 @@ src/Optimizer.cc
 src/PnPsolver.cc
 src/Frame.cc
 src/KeyFrameDatabase.cc
-src/Sim3Solver.cc
+        src/Sim3Solver.cc
 src/Initializer.cc
 src/Viewer.cc
         )

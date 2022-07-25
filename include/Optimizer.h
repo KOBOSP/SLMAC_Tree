@@ -130,7 +130,7 @@ public:
      * @param   pFrame Frame
      * @return  inliers数量
      */
-    int static OptimizeFramePose(Frame* pFrame);
+    int static OptimizeFramePose(Frame* pFrame, double ErrorAddFactor=0);
 
     // if bFixScale is true, 6DoF optimization (stereo,rgbd), 7DoF otherwise (mono)
     /**

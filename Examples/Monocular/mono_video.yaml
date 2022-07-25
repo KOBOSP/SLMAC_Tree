@@ -21,31 +21,26 @@ Camera.p1: 0
 Camera.p2: 0
 Camera.k3: 0
 
-#Image.width: 740
-#Image.height: 416
-#Image.IsSeq: 1
-#Camera.width: 740
-#Camera.height: 416
+#camera is process frame
+Camera.width: 720
+Camera.height: 480
+Camera.fps: 5
+
+# Color order of the images (0: BGR, 1: RGB. It is ignored if images are grayscale)
+Camera.RGB: 0
 
 # Camera frames per second
 # image is input
-Image.width: 740
-Image.height: 416
-Image.IsSeq: 2
-#camera is process frame
-Camera.width: 740
-Camera.height: 416
-Camera.fps: 10
- 
-# Color order of the images (0: BGR, 1: RGB. It is ignored if images are grayscale)
-Camera.RGB: 0
- 
+Image.width: 720
+Image.height: 480
+Image.height: 480
+
 #--------------------------------------------------------------------------------------------
 # ORB Parameters
 #--------------------------------------------------------------------------------------------
  
 # ORB Extractor: Number of features per image
-ORBextractor.nFeatures: 5000
+ORBextractor.nFeatures: 1500
  
 # ORB Extractor: Scale factor between levels in the scale pyramid     
 ORBextractor.scaleFactor: 1.2
@@ -63,17 +58,14 @@ Track.GoodMMOrRKFVOThreshold: 20
 Track.LossMMOrRKFVOThreshold: 10
 Track.GoodLMVOThreshold: 40
 Track.LossLMVOThreshold: 20
-Track.MaxFrameID: 5000
 Track.MaxObjectID: 5000
-Track.UseLKOpticalFlow: 0
 LocalMap.CullKFRedundantMPRate: 60
 LoopClose.CovisibilityConsistencyTh: 3
-#int KeyFrame::mnMinConnectedWeight=15;
-LoopClose.SingleMatchKeyPoint: 15
+LoopClose.SingleMatchKeyPoint: 5
 LoopClose.TotalMatchKeyPoint: 30
 LoopClose.SingleMatchObject: 5
 LoopClose.TotalMatchObject: 10
-LoopClose.SystemWithoutLoopClose: 0
+LoopClose.SystemWithoutLoopClose: 1
 LoopClose.FuseMPByObjectSceneThreshold: 5
 LoopClose.DetectLoopByFusedMPNumThreshold: 20
 KFDB.radioCommonWord: 0.8

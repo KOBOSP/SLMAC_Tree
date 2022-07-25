@@ -213,8 +213,6 @@ public:
     long unsigned int mnId; ///< Global ID for MapPoint
     static long unsigned int nNextId;
     const long int mnFirstKFid; ///< 创建该MapPoint的关键帧ID
-    //呐,如果是从帧中创建的话,会将普通帧的id存放于这里
-    const long int mnFirstFrame; ///< 创建该MapPoint的帧ID（即每一关键帧有一个帧ID）
 
 
     int mnObjectID;
@@ -232,7 +230,9 @@ public:
     // c 不在当前相机视野中的点（即未通过isInFrustum判断）     //? 
     bool mbTrackInView;
     // TrackWithLocalMap - RefreshLocalMapPoints 中防止将MapPoints重复添加至mvpLocalMapPoints的标记
-    long unsigned int mnTrackReferenceForFrame;
+    long unsigned int mnFrameIdForLocalMp;
+    long unsigned int mnFrameIdForGpsOrMotion;
+
 
     // TrackWithLocalMap - SearchNewMatchesByLocalMapPoints 中决定是否进行isInFrustum判断的变量
     // NOTICE mnLastFrameSeen==mCurrentFrame.mnId的点有几种：

@@ -86,12 +86,14 @@ public:
      * @return std::vector<KeyFrame*> 获得的关键帧序列
      */
     std::vector<KeyFrame*> GetAllKeyFrames();
+    void GetNearestKeyFramesByGps(int nNum, vector<KeyFrame*> &vKFNearest, cv::Mat t0);
+
     /**
      * @brief 获取地图中的所有地图点
      * 
      * @return std::vector<MapPoint*> 获得的地图点序列
      */
-    std::vector<MapPoint*> GetAllMapPoints(bool NeedObjectMP = true);
+    std::vector<MapPoint*> GetAllMapPoints(bool bNeedObject = true);
     void GetAllObjectsInMap(vector<MapPoint*> &vMPs);
     long unsigned int GetObcjectsNumInMap();
 
