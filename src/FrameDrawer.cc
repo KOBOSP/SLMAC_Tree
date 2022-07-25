@@ -47,6 +47,11 @@ FrameDrawer::FrameDrawer(Map* pMap, const string &strSettingPath):mpMap(pMap){
     // 初始化图像显示画布
     // 包括：图像、特征点连线形成的轨迹（初始化时）、框（跟踪时的MapPoint）、圈（跟踪时的特征点）
     mIm = cv::Mat(fSettings["Camera.height"],fSettings["Camera.width"],CV_8UC3, cv::Scalar(0,0,0));
+    mnColorSetSize = fSettings["Viewer.ColorSetSize"];
+    for(int i=0; i < mnColorSetSize; i++){
+        mvColorSet.emplace_back(cv::Point3f(rand() % 255, rand() % 255, rand() % 255));
+    }
+    cout << "- Viewer.ColorSetSize: " << mnColorSetSize << endl;
 }
 
 // 准备需要显示的信息，包括图像、特征点、地图、跟踪状态
@@ -123,7 +128,9 @@ cv::Mat FrameDrawer::DrawFrame()
         }
         for(int i=0;i<n;i++){
             if(vCurrentKeys[i].class_id>0){
-                cv::circle(im,vCurrentKeys[i].pt,10,cv::Scalar(vCurrentKeys[i].size,vCurrentKeys[i].angle,vCurrentKeys[i].response),5);
+                cv::circle(im, vCurrentKeys[i].pt, vCurrentKeys[i].size, cv::Scalar(mvColorSet[vCurrentKeys[i].class_id % mnColorSetSize].x,
+                                                                  mvColorSet[vCurrentKeys[i].class_id % mnColorSetSize].y,
+                                                                  mvColorSet[vCurrentKeys[i].class_id % mnColorSetSize].z), 2);
                 mnTrackedTarget++;
             }
             //如果这个点在视觉里程计中有(应该是追踪成功了的意思吧),在局部地图中也有
@@ -177,8 +184,8 @@ void FrameDrawer::DrawTextInfo(cv::Mat &im, int nState, cv::Mat &imText)
         int nKFs = mpMap->GetKeyFramesNumInMap();
         int nMPs = mpMap->GetMapPointsNumInMap();
         int nObs = mpMap->GetObcjectsNumInMap();
-        s << "fps: "<< int(1/(mdCurrentTimeStamp-mdLastTimeStamp)) <<" KFs: " << nKFs << ", MPs: " << nMPs <<", Obs: " << nObs
-        << ", MapTra: " << mnTrackedMap << ", VOTra: " << mnTrackedVO << ", TarTra: " << mnTrackedTarget;
+        s << "fps:"<< int(1/(mdCurrentTimeStamp-mdLastTimeStamp)) <<",KFs:" << nKFs << ",MPs:" << nMPs <<",Obs:" << nObs
+        << ",MapT:" << mnTrackedMap << ",VOT:" << mnTrackedVO << ",TarT:" << mnTrackedTarget;
     }
     else if(nState==Tracking::LOST){
         s << " TRACK LOST. TRYING TO RELOCALIZE ";
@@ -246,7 +253,7 @@ void FrameDrawer::UpdateImgKPMPState(Tracking *pTracker)
             if(pMP){
                 if(!pTracker->mCurrentFrame.mvbOutlier[i]){
                     //该mappoints可以被多帧观测到，则为有效的地图点
-                    if(pMP->Observations()>2)
+                    if(pMP->GetObservations() > 2)
                         mvbMap[i]=true;
                     else
                     //否则表示这个特征点是在当前帧中第一次提取得到的点

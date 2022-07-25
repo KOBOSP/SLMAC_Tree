@@ -136,6 +136,8 @@ public:
     ///为了避免地图点id冲突设计的互斥量
     std::mutex mMutexPointCreation;
 
+    int mnMaxObjectID;
+
 protected:
     // 存储所有的地图点
     std::set<MapPoint*> mspMapPoints; 

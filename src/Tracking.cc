@@ -206,22 +206,18 @@ Tracking::Tracking(
     freopen(strFrameTargetFile.c_str(),"r",stdin);
     int tmpFrameID, tmpTargetID, tmpTargetX, tmpTargetY, tmpTargetL, tmpTargetH;
     mvTarsSet.resize(MaxFrameID);
-    int ColorSetSize = fSettings["Viewer.ColorSetSize"];
-    vector<cv::Point3f> ColorSet;
-    for(int i=0;i<ColorSetSize;i++){
-        ColorSet.emplace_back(cv::Point3f(rand()%255, rand()%255,rand()%255));
-    }
+
     while(cin >> tmpFrameID >> tmpTargetID >> tmpTargetX >> tmpTargetY >> tmpTargetL >> tmpTargetH){
-        mvTarsSet[tmpFrameID].emplace_back(cv::KeyPoint(cv::Point2f((tmpTargetX+tmpTargetL/2.0)/image_width*frame_width,
-                                                                 (tmpTargetY+tmpTargetH/2.0)/image_height*frame_height),
-                                                     ColorSet[tmpTargetID%ColorSetSize].x,
-                                                     ColorSet[tmpTargetID%ColorSetSize].y,
-                                                     ColorSet[tmpTargetID%ColorSetSize].z,
+        float fWidthRadio=frame_width*1.0/image_width, fHeightRadio=frame_height*1.0/image_height;
+        mvTarsSet[tmpFrameID].emplace_back(cv::KeyPoint(cv::Point2f((tmpTargetX+tmpTargetL/2.0)*fWidthRadio,
+                                                                    (tmpTargetY+tmpTargetH/2.0)*fHeightRadio),
+                                                        (sqrt(pow(tmpTargetL*fWidthRadio,2)+pow(tmpTargetH*fHeightRadio,2))/2.0),
+                                                     0,
+                                                     0,
                                                      0,
                                                      tmpTargetID));
     }
     fclose(stdin);
-    cout << "- Viewer.ColorSetSize: " << ColorSetSize << endl;
     cout << "- ActualMaxFrameID: " << tmpFrameID << endl;
 }
 
@@ -255,7 +251,7 @@ void Tracking::SetViewer(Viewer *pViewer)
  * Step 2 ：构造Frame
  * Step 3 ：跟踪
  */
-cv::Mat Tracking::GrabImageMonocular(const cv::Mat &im,const double &timestamp, int FrameID)
+void Tracking::CreateMonocularFrame(const cv::Mat &im, const double &timestamp, int FrameID, cv::Mat &Trtk)
 {
     mImGray = im;
     // Step 1 ：将彩色图像转为灰度图像
@@ -283,7 +279,8 @@ cv::Mat Tracking::GrabImageMonocular(const cv::Mat &im,const double &timestamp, 
             mK,
             mDistCoef,
             mThDepth,
-            mvTarsSet[FrameID]);
+            mvTarsSet[FrameID],
+            Trtk);
     else
         mCurrentFrame = Frame(
             mImGray,
@@ -293,12 +290,8 @@ cv::Mat Tracking::GrabImageMonocular(const cv::Mat &im,const double &timestamp, 
             mK,
             mDistCoef,
             mThDepth,
-            mvTarsSet[FrameID]);
-
-    // Step 3 ：跟踪
-    Track();
-    //返回当前帧的位姿
-    return mCurrentFrame.mTcw.clone();
+            mvTarsSet[FrameID],
+            Trtk);
 }
 
 /*
@@ -310,7 +303,7 @@ cv::Mat Tracking::GrabImageMonocular(const cv::Mat &im,const double &timestamp, 
  * Step 2：跟踪
  * Step 3：记录位姿信息，用于轨迹复现
  */
-void Tracking::Track(){
+cv::Mat Tracking::DoTrack(){
     // track包含两部分：估计运动、跟踪局部地图
     // mState为tracking的状态，包括 SYSTME_NOT_READY, NO_IMAGE_YET, NOT_INITIALIZED, OK, LOST
     // 如果图像复位过、或者第一次运行，则为NO_IMAGE_YET状态
@@ -337,10 +330,10 @@ void Tracking::Track(){
 
         //这个状态量在上面的初始化函数中被更新
         if(mState!=OK)
-            return;
+            return cv::Mat();
     }
     else {
-        // System is initialized. Track Frame.
+        // System is initialized. DoTrack Frame.
         // bOK为临时变量，用于表示每个函数是否执行成功
         bool bOK;
 
@@ -373,17 +366,10 @@ void Tracking::Track(){
                     // 根据恒速模型设定当前帧的初始位姿
                     // 通过投影的方式在参考帧中找当前帧特征点的匹配点
                     // 优化每个特征点所对应3D点的投影误差即可得到位姿
-                    clock_t ST, ET;
-                    ST = clock();
                     bOK = TrackWithMotionModel();
-                    ET = clock();
                     if (!bOK) {
-                        cout << "TrackWithMotionModel: " << (ET - ST) / 1000 << endl;
                         //根据恒速模型失败了，只能根据参考关键帧来跟踪
-                        ST = clock();
                         bOK = TrackWithReferenceKeyFrame();
-                        ET = clock();
-                        cout << "TrackWithReferenceKeyFrame: " << (ET - ST) / 1000 << endl;
                     }
                 }
             } else {
@@ -486,7 +472,7 @@ void Tracking::Track(){
         // 将最新的关键帧作为当前帧的参考关键帧
         mCurrentFrame.mpReferenceKF = mpReferenceKF;
 
-        // If we have an initial estimation of the camera pose and matching. Track the local map.
+        // If we have an initial estimation of the camera pose and matching. DoTrack the local map.
         // Step 3：在跟踪得到当前帧初始姿态后，现在对local map进行跟踪得到更多的匹配，并优化当前位姿
         // 前面只是跟踪一帧得到初始位姿，这里搜索局部关键帧、局部地图点，和当前帧进行投影匹配，得到更多匹配的MapPoints后进行Pose优化
         if(!mbOnlyTracking){
@@ -537,7 +523,7 @@ void Tracking::Track(){
             for(int i=0; i<mCurrentFrame.mnKeyPointNum; i++){
                 MapPoint* pMP = mCurrentFrame.mvpMapPoints[i];
                 if(pMP){
-                    if(pMP->Observations()<1){
+                    if(pMP->GetObservations() < 1){
                         mCurrentFrame.mvbOutlier[i] = false;
                         mCurrentFrame.mvpMapPoints[i]=static_cast<MapPoint*>(NULL);
                     }
@@ -571,9 +557,9 @@ void Tracking::Track(){
         if(mState==LOST){
             //如果地图中的关键帧信息过少的话,直接重新进行初始化了
             if(mpMap->GetKeyFramesNumInMap() <= 5){
-                cout << "Track lost soon after initialisation, reseting..." << endl;
+                cout << "DoTrack lost soon after initialisation, reseting..." << endl;
                 mpSystem->Reset();
-                return;
+                return cv::Mat();
             }
         }
 
@@ -604,7 +590,8 @@ void Tracking::Track(){
         mlFrameTimes.emplace_back(mlFrameTimes.back());
         mlbLost.emplace_back(mState==LOST);
     }
-}// Tracking 
+    return mCurrentFrame.mTcw.clone();
+}// Tracking
 
 
 
@@ -931,7 +918,7 @@ bool Tracking::TrackWithReferenceKeyFrame()
                 pMP->mnLastFrameSeen = mCurrentFrame.mnId;
                 nmatches--;
             }
-            else if(mCurrentFrame.mvpMapPoints[i]->Observations()>0)
+            else if(mCurrentFrame.mvpMapPoints[i]->GetObservations() > 0)
                 //匹配的内点计数++
                 nmatchesMap++;
         }
@@ -1025,7 +1012,7 @@ bool Tracking::TrackWithMotionModel()
                 pMP->mnLastFrameSeen = mCurrentFrame.mnId;
                 nmatches--;
             }
-            else if(mCurrentFrame.mvpMapPoints[i]->Observations()>0)
+            else if(mCurrentFrame.mvpMapPoints[i]->GetObservations() > 0)
                 // 累加成功匹配到的地图点数目
                 nmatchesMap++;
         }
@@ -1087,7 +1074,7 @@ bool Tracking::TrackWithLocalMap()
                 if(!mbOnlyTracking){
                     // 如果该地图点被相机观测数目nObs大于0，匹配内点计数+1
                     // mnObserve： 被观测到的相机数目，单目+1，双目或RGB-D则+2
-                    if(mCurrentFrame.mvpMapPoints[i]->Observations()>0)
+                    if(mCurrentFrame.mvpMapPoints[i]->GetObservations() > 0)
                         mnMatchesInliers++;
                 }
                 else{
@@ -1167,7 +1154,7 @@ bool Tracking::NeedNewKeyFrame()
     // Step 7：决策是否需要插入关键帧
     // Thresholds
     // Step 7.1：设定比例阈值，当前帧和参考关键帧跟踪到点的比例，比例越大，越倾向于增加关键帧
-    float thRefRatio = 0.5f;
+    float thRefRatio = 0.7f;
     if(mbBadVO){
         thRefRatio=1.0f;
     }
@@ -1236,7 +1223,7 @@ void Tracking::SearchNewMatchesByLocalMapPoints(){
     for(vector<MapPoint*>::iterator vit=mCurrentFrame.mvpMapPoints.begin(), vend=mCurrentFrame.mvpMapPoints.end(); vit!=vend; vit++){
         MapPoint* pMP = *vit;
         if(pMP){
-            if(pMP->isBad()){
+            if(pMP->GetbBad()){
                 *vit = static_cast<MapPoint*>(NULL);
             }
             else{
@@ -1261,7 +1248,7 @@ void Tracking::SearchNewMatchesByLocalMapPoints(){
         if(pMP->mnLastFrameSeen == mCurrentFrame.mnId)
             continue;
         // 跳过坏点
-        if(pMP->isBad())
+        if(pMP->GetbBad())
             continue;
         
         // Project (this fills MapPoint variables for matching)
@@ -1331,7 +1318,7 @@ void Tracking::RefreshLocalMapPoints()
             // 表示它已经是当前帧的局部地图点了，可以防止重复添加局部地图点
             if(pMP->mnTrackReferenceForFrame==mCurrentFrame.mnId)
                 continue;
-            if(!pMP->isBad())
+            if(!pMP->GetbBad())
             {
                 mvpLocalMapPoints.emplace_back(pMP);
                 pMP->mnTrackReferenceForFrame=mCurrentFrame.mnId;
@@ -1358,7 +1345,7 @@ void Tracking::RefreshLocalKeyFrames()
     for(int i=0; i<mCurrentFrame.mnKeyPointNum; i++){
         if(mCurrentFrame.mvpMapPoints[i]){
             MapPoint* pMP = mCurrentFrame.mvpMapPoints[i];
-            if(!pMP->isBad()){
+            if(!pMP->GetbBad()){
                 // 得到观测到该地图点的关键帧和该地图点在关键帧中的索引
                 const map<KeyFrame*,size_t> observations = pMP->GetObservationsKFAndMPIdx();
                 // 由于一个地图点可以被多个关键帧观测到,因此对于每一次观测,都对观测到这个地图点的关键帧进行累计投票
@@ -1481,7 +1468,7 @@ bool Tracking::Relocalization()
     mCurrentFrame.ComputeBoW();
 
     // Relocalization is performed when tracking is lost
-    // Track Lost: Query KeyFrame Database for keyframe candidates for relocalisation
+    // DoTrack Lost: Query KeyFrame Database for keyframe candidates for relocalisation
     // Step 2：用词袋找到与当前帧相似的候选关键帧
     vector<KeyFrame*> vpCandidateKFs = mpKeyFrameDB->DetectRelocalizationCandidates(&mCurrentFrame);
     

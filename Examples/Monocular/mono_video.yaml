@@ -5,23 +5,37 @@
 #--------------------------------------------------------------------------------------------
 
 # Camera calibration and distortion parameters (OpenCV) 
-Camera.fx: 500.0
-Camera.fy: 500.0
-Camera.cx: 320.0
-Camera.cy: 240.0
- 
+#Camera.fx: 238.0
+#Camera.fy: 238.0
+#Camera.cx: 206.0
+#Camera.cy: 148.0
+
+Camera.fx: 348.522264
+Camera.fy: 348.449870
+Camera.cx: 344.483596
+Camera.cy: 188.808062
+
 Camera.k1: 0
 Camera.k2: 0
 Camera.p1: 0
 Camera.p2: 0
 Camera.k3: 0
- 
-# Camera frames per second 
-Image.width: 1920
-Image.height: 1080
-Camera.width: 960
-Camera.height: 544
-Camera.fps: 7
+
+#Image.width: 740
+#Image.height: 416
+#Image.IsSeq: 1
+#Camera.width: 740
+#Camera.height: 416
+
+# Camera frames per second
+# image is input
+Image.width: 740
+Image.height: 416
+Image.IsSeq: 0
+#camera is process frame
+Camera.width: 740
+Camera.height: 416
+Camera.fps: 6
  
 # Color order of the images (0: BGR, 1: RGB. It is ignored if images are grayscale)
 Camera.RGB: 0
@@ -37,7 +51,7 @@ ORBextractor.nFeatures: 1000
 ORBextractor.scaleFactor: 1.2
  
 # ORB Extractor: Number of levels in the scale pyramid    
-ORBextractor.nLevels: 10
+ORBextractor.nLevels: 5
  
 # ORB Extractor: Fast threshold
 # Image is divided in a grid. At each cell FAST are extracted imposing a minimum response.
@@ -49,16 +63,18 @@ Track.GoodMMOrRKFVOThreshold: 20
 Track.LossMMOrRKFVOThreshold: 10
 Track.GoodLMVOThreshold: 40
 Track.LossLMVOThreshold: 20
-Track.MaxFrameID: 15000
-Track.MaxObjectID: 3000
+Track.MaxFrameID: 5000
+Track.MaxObjectID: 5000
 LocalMap.CullKFRedundantMPRate: 60
 LoopClose.CovisibilityConsistencyTh: 3
 #int KeyFrame::mnMinConnectedWeight=15;
 LoopClose.SingleMatchKeyPoint: 15
 LoopClose.TotalMatchKeyPoint: 30
+LoopClose.SingleMatchObject: 5
+LoopClose.TotalMatchObject: 10
 LoopClose.SystemWithoutLoopClose: 0
-LoopClose.FuseMPByObjectSceneThreshold: 2
-LoopClose.DetectLoopByFusedMPNumThreshold: 100
+LoopClose.FuseMPByObjectSceneThreshold: 5
+LoopClose.DetectLoopByFusedMPNumThreshold: 20
 KFDB.radioCommonWord: 0.8
 KFDB.radioAccScore: 0.7
  
@@ -75,4 +91,4 @@ Viewer.ViewpointX: 0
 Viewer.ViewpointY: -0.7
 Viewer.ViewpointZ: -1.8
 Viewer.ViewpointF: 500
-Viewer.ColorSetSize: 30
+Viewer.ColorSetSize: 60

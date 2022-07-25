@@ -51,7 +51,10 @@ MapDrawer::MapDrawer(Map* pMap, const string &strSettingPath):mpMap(pMap)
     mPointSize = fSettings["Viewer.PointSize"];
     mCameraSize = fSettings["Viewer.CameraSize"];
     mCameraLineWidth = fSettings["Viewer.CameraLineWidth"];
-
+    mnColorSetSize = fSettings["Viewer.ColorSetSize"];
+    for(int i=0; i < mnColorSetSize; i++){
+        mvColorSet.emplace_back(cv::Point3f(rand() % 255, rand() % 255, rand() % 255));
+    }
 }
 
 void MapDrawer::DrawMapPoints()
@@ -77,7 +80,7 @@ void MapDrawer::DrawMapPoints()
     for(size_t i=0, iend=vpMPs.size(); i<iend;i++){
         if(!vpMPs[i])
             continue;
-        if(vpMPs[i]->isBad())
+        if(vpMPs[i]->GetbBad())
             continue;
         // 不包括ReferenceMapPoints（局部地图点）
         if(spRefMPs.count(vpMPs[i]))
@@ -86,7 +89,9 @@ void MapDrawer::DrawMapPoints()
             glEnd();
             glPointSize(mPointSize*5);
             glBegin(GL_POINTS);
-            glColor3f(0.0,1.0,0.0);
+            glColor3f(mvColorSet[vpMPs[i]->mnObjectID % mnColorSetSize].x/255,
+                      mvColorSet[vpMPs[i]->mnObjectID % mnColorSetSize].y/255,
+                      mvColorSet[vpMPs[i]->mnObjectID % mnColorSetSize].z/255);
             cv::Mat pos = vpMPs[i]->GetWorldPos();
             glVertex3f(pos.at<float>(0),pos.at<float>(1),pos.at<float>(2));
             glEnd();
@@ -107,7 +112,7 @@ void MapDrawer::DrawMapPoints()
     for(set<MapPoint*>::iterator sit=spRefMPs.begin(), send=spRefMPs.end(); sit!=send; sit++){
         if(!(*sit))
             continue;
-        if((*sit)->isBad())
+        if((*sit)->GetbBad())
             continue;
         if((*sit)->mnObjectID>0){
             glEnd();
@@ -234,6 +239,7 @@ void MapDrawer::DrawKeyFrames(const bool bDrawKF, const bool bDrawGraph)
             //TODO 这个部分也不是非常明白
             set<KeyFrame*> sLoopKFs = vpKFs[i]->GetLoopEdges();
             //设置共视图连接线为cyan，透明度为0.6f
+            glLineWidth(mGraphLineWidth*3);
             glColor4f(0.0f,1.0f,1.0f,1.0f);
             for(set<KeyFrame*>::iterator sit=sLoopKFs.begin(), send=sLoopKFs.end(); sit!=send; sit++)
             {
@@ -243,6 +249,7 @@ void MapDrawer::DrawKeyFrames(const bool bDrawKF, const bool bDrawGraph)
                 glVertex3f(Ow.at<float>(0),Ow.at<float>(1),Ow.at<float>(2));
                 glVertex3f(Owl.at<float>(0),Owl.at<float>(1),Owl.at<float>(2));
             }
+            glLineWidth(mGraphLineWidth);
         }
 
         glEnd();

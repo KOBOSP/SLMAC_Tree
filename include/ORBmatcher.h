@@ -207,7 +207,7 @@ public:
      * @return int 
      */
     int FuseRedundantMapPointAndSameIdObjectInLocalMap(KeyFrame* pKF, const vector<MapPoint *> &vpMapPoints, const float th=3.0, bool bInLoopClose = false);
-    int FuseRedundantDifferIdObjectInLocalMap(KeyFrame* pKF, const vector<MapPoint *> &vpMapPoints, vector<int> &vnSameObjectIdMap, set<int> &sLinkedObjectID, bool notRecursion = false, const float th = TH_LOW);
+    int FuseRedundantDifferIdObjectInLocalMap(KeyFrame* pKF, const vector<MapPoint *> &vpMapPoints, vector<int> &vnSameObjectIdMap, set<int> &sLinkedObjectID, const int nMaxObjectID, bool notRecursion = false, const float th = 1.5);
 
     // Project MapPoints into KeyFrame using a given Sim3 and search for duplicated MapPoints.
     /**

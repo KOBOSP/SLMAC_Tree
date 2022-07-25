@@ -118,7 +118,7 @@ int ORBmatcher::SearchFMatchPointByProjectMapPoint(Frame &F, const vector<MapPoi
             // 判断该点是否要投影
             if(!pMP->mbTrackInView)
                 continue;
-            if(pMP->isBad())
+            if(pMP->GetbBad())
                 continue;
             if(pMP->mnObjectID>0){
                 continue;
@@ -164,7 +164,7 @@ int ORBmatcher::SearchFMatchPointByProjectMapPoint(Frame &F, const vector<MapPoi
 
                 // 如果Frame中的该兴趣点已经有对应的MapPoint了,则退出该次循环
                 if(F.mvpMapPoints[idx]){
-                    if(F.mvpMapPoints[idx]->Observations()>0){
+                    if(F.mvpMapPoints[idx]->GetObservations() > 0){
                         continue;
                     }
                 }
@@ -245,7 +245,7 @@ int ORBmatcher::SearchKFNewMatchPointBySim3andLocalMP(KeyFrame* pKF, cv::Mat Scw
         MapPoint* pMP = vpPoints[iMP];
         // Discard Bad MapPoints and already found
         // Step 2.1 丢弃坏点，跳过当前KF已经匹配上的地图点
-        if(pMP->isBad() || spAlreadyFound.count(pMP))
+        if(pMP->GetbBad() || spAlreadyFound.count(pMP))
             continue;
         if(pMP->mnObjectID>0 && !NeedObjectMP){
             continue;
@@ -375,7 +375,7 @@ int ORBmatcher::SearchFMatchPointByProjectLastFrame(Frame &CurrentFrame, const F
         for(int i=0; i<LastFrame.mnKeyPointNum; i++){
             MapPoint* pMP = LastFrame.mvpMapPoints[i];
             if(pMP){
-                if(pMP->isBad()){
+                if(pMP->GetbBad()){
                     continue;
                 }
                 if(pMP->mnObjectID>0){
@@ -431,7 +431,7 @@ int ORBmatcher::SearchFMatchPointByProjectLastFrame(Frame &CurrentFrame, const F
                         const size_t i2 = *vit;
                         // 如果该特征点已经有对应的MapPoint了,则退出该次循环
                         if(CurrentFrame.mvpMapPoints[i2])
-                            if(CurrentFrame.mvpMapPoints[i2]->Observations()>0)
+                            if(CurrentFrame.mvpMapPoints[i2]->GetObservations() > 0)
                                 continue;
 
                         const cv::Mat &d = CurrentFrame.mDescriptors.row(i2);
@@ -519,7 +519,7 @@ int ORBmatcher::SearchFMatchPointByProjectKeyFrame(Frame &CurrentFrame, KeyFrame
             if(pMP)
             {
                 // 地图点存在 并且 不在已有地图点集合里
-                if(!pMP->isBad() && !sAlreadyFound.count(pMP))
+                if(!pMP->GetbBad() && !sAlreadyFound.count(pMP))
                 {
                     //Project
                     cv::Mat x3Dw = pMP->GetWorldPos();
@@ -836,7 +836,7 @@ int ORBmatcher::SearchFMatchPointByKFBoW(KeyFrame* pKF, Frame &F, vector<MapPoin
                     if(!pMP){
                         continue;
                     }
-                    if(pMP->isBad()){
+                    if(pMP->GetbBad()){
                         continue;
                     }
                     if(pMP->mnObjectID>0){
@@ -981,7 +981,7 @@ int ORBmatcher::SearchKFMatchPointByKFBoW(KeyFrame *pKF1, KeyFrame *pKF2, vector
                 MapPoint* pMP1 = vpMapPoints1[idx1];
                 if(!pMP1)
                     continue;
-                if(pMP1->isBad())
+                if(pMP1->GetbBad())
                     continue;
                 if(pMP1->mnObjectID>0 && !NeedObjectMP){
                     continue;
@@ -998,7 +998,7 @@ int ORBmatcher::SearchKFMatchPointByKFBoW(KeyFrame *pKF1, KeyFrame *pKF2, vector
                     // 如果已经有匹配的点，或者遍历到的特征点对应的地图点无效
                     if(vbMatched2[idx2] || !pMP2)
                         continue;
-                    if(pMP2->isBad())
+                    if(pMP2->GetbBad())
                         continue;
                     if(pMP1->mnObjectID>0 && !NeedObjectMP){
                         continue;
@@ -1332,7 +1332,7 @@ int ORBmatcher::SearchNewKFMatchPointByKFMutualSim3(KeyFrame *pKF1, KeyFrame *pK
             if(!pMP || vbAlreadyMatched1[i1])
                 continue;
             // 地图点是要删掉的，跳过
-            if(pMP->isBad())
+            if(pMP->GetbBad())
                 continue;
             if(pMP->mnObjectID>0 && !NeedObjectMP){
                 continue;
@@ -1403,7 +1403,7 @@ int ORBmatcher::SearchNewKFMatchPointByKFMutualSim3(KeyFrame *pKF1, KeyFrame *pK
             MapPoint* pMP = vpMapPoints2[i2];
             if(!pMP || vbAlreadyMatched2[i2])
                 continue;
-            if(pMP->isBad())
+            if(pMP->GetbBad())
                 continue;
             if(pMP->mnObjectID>0 && !NeedObjectMP){
                 continue;
@@ -1517,7 +1517,7 @@ int ORBmatcher::SearchAndFuseMPsInLoopClose(KeyFrame *pKF, cv::Mat Scw, const ve
         MapPoint* pMP = vpPoints[iMP];
         // Discard Bad MapPoints and already found
         // 地图点无效 或 已经是该帧的地图点（无需融合），跳过
-        if(pMP->isBad() || spAlreadyFound.count(pMP))
+        if(pMP->GetbBad() || spAlreadyFound.count(pMP))
             continue;
 
         // Get 3D Coords.
@@ -1598,7 +1598,7 @@ int ORBmatcher::SearchAndFuseMPsInLoopClose(KeyFrame *pKF, cv::Mat Scw, const ve
             if(pMPinKF){
                 // 如果这个地图点已经存在，则记录要替换信息
                 // 这里不能直接替换，原因是需要对地图点加锁后才能替换，否则可能会crash。所以先记录，在加锁后替换
-                if(!pMPinKF->isBad())
+                if(!pMPinKF->GetbBad())
                     vpReplacePoint[iMP] = pMPinKF;
             }
             else{
@@ -1645,7 +1645,7 @@ int ORBmatcher::FuseRedundantMapPointAndSameIdObjectInLocalMap(KeyFrame *pKF, co
             continue;
         }
         // 地图点无效 或 已经是该帧的地图点（无需融合），跳过
-        if(pMP->isBad()){
+        if(pMP->GetbBad()){
             continue;
         }
         if(pMP->IsInKeyFrame(pKF)){
@@ -1743,8 +1743,8 @@ int ORBmatcher::FuseRedundantMapPointAndSameIdObjectInLocalMap(KeyFrame *pKF, co
             MapPoint* pMPinKF = pKF->GetMapPointByIndex(bestIdx);
             if(pMPinKF){
                 // 如果最佳匹配点有对应有效地图点，选择被观测次数最多的那个替换
-                if(!pMPinKF->isBad()){
-                    if(pMPinKF->Observations()>pMP->Observations()){
+                if(!pMPinKF->GetbBad()){
+                    if(pMPinKF->GetObservations() > pMP->GetObservations()){
                         pMP->Replace(pMPinKF);
                     }
                     else{
@@ -1763,8 +1763,26 @@ int ORBmatcher::FuseRedundantMapPointAndSameIdObjectInLocalMap(KeyFrame *pKF, co
     return nFused;
 }
 
-int ORBmatcher::FuseRedundantDifferIdObjectInLocalMap(KeyFrame *pKF, const vector<MapPoint *> &vpMapPoints, vector<int> &vnSameObjectIdMap, set<int> &sLinkedObjectID, bool notRecursion, const float th){
-    int nFused=0;
+bool CanGetNewKPtoRematchMP(vector<vector<int> > &vvnMPMatchKPCandidate, vector<bool> &vbKeyPointVisit, vector<int> &vnKeyPointLink, int &MP){
+//    if(vvnMPMatchKPCandidate[MP].size()){
+//        return false;
+//    }
+    for(int iKP=0; iKP < vvnMPMatchKPCandidate[MP].size(); iKP++){
+        int KP=vvnMPMatchKPCandidate[MP][iKP];
+//        cout<<"iKP: "<< iKP <<" KP: "<< KP <<" MP: "<< MP<< " vvnMPMatchKPCandidate[MP].size():  " << vvnMPMatchKPCandidate[MP].size() <<endl;
+        if(!vbKeyPointVisit[KP]){
+            vbKeyPointVisit[KP]=true;
+            if(vnKeyPointLink[KP] == -1 || CanGetNewKPtoRematchMP(vvnMPMatchKPCandidate, vbKeyPointVisit, vnKeyPointLink, vnKeyPointLink[KP])){ //如果t尚未被匹配，或者link[KP]即x可以找到其他能够替代的点,则把t点让给u匹配
+                vnKeyPointLink[KP]=MP;
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+int ORBmatcher::FuseRedundantDifferIdObjectInLocalMap(KeyFrame *pKF, const vector<MapPoint *> &vpMapPoints, vector<int> &vnSameObjectIdMap, set<int> &sLinkedObjectID, const int nMaxObjectID, bool notRecursion, const float th) {
+    int nSingleFused = 0, nBatchFused = 0;
     // 取出当前帧位姿、内参、光心在世界坐标系下坐标
     cv::Mat RcwC = pKF->GetRotation();
     cv::Mat tcwC = pKF->GetTranslation();
@@ -1774,25 +1792,26 @@ int ORBmatcher::FuseRedundantDifferIdObjectInLocalMap(KeyFrame *pKF, const vecto
     const float &cyC = pKF->cy;
     cv::Mat OwC = pKF->GetCameraCenter();
     const int nMPs = vpMapPoints.size();
+    vector<vector<int> > vvnMPMatchKPCandidate;
+    vvnMPMatchKPCandidate.resize(nMaxObjectID);
+
+
     // 遍历所有的待投影地图点
-    vector<int> ExistReason;
-    ExistReason.resize(10,0);
-    for(int i=0; i<nMPs; i++){
-        MapPoint* pMP = vpMapPoints[i];
-        if(!pMP){
-            ExistReason[0]++;
+    for (int i = 0; i < nMPs; i++) {
+        MapPoint *pMP = vpMapPoints[i];
+        if (!pMP) {
             continue;
         }
-        if(pMP->isBad()){
-            ExistReason[1]++;
+        if (pMP->GetbBad()) {
             continue;
         }
-        if(pMP->IsInKeyFrame(pKF)){
-            ExistReason[2]++;
+        if (pMP->IsInKeyFrame(pKF)) {
             continue;
         }
         float bestDist = 999999;
         int bestIdx = -1;
+//        const float fMaxSquareRadius = pMP->mfObjectRadius * pMP->mfObjectRadius / th;
+
 
         // 将地图点变换到关键帧的相机坐标系下
         cv::Mat p3DwC = pMP->GetWorldPos();
@@ -1800,8 +1819,7 @@ int ORBmatcher::FuseRedundantDifferIdObjectInLocalMap(KeyFrame *pKF, const vecto
 
         // Depth must be positive
         // 深度值为负，跳过
-        if(p3DcC.at<float>(2) < 0.0f){
-            ExistReason[3]++;
+        if (p3DcC.at<float>(2) < 0.0f) {
             continue;
         }
         // Step 2 得到地图点投影到关键帧的图像坐标
@@ -1813,37 +1831,20 @@ int ORBmatcher::FuseRedundantDifferIdObjectInLocalMap(KeyFrame *pKF, const vecto
 
         // Point must be inside the image
         // 投影点需要在有效范围内
-        if(!pKF->IsInImage(uC, vC)){
-            ExistReason[4]++;
+        if (!pKF->IsInImage(uC, vC)) {
             continue;
         }
         // Step 5 在投影点附近搜索窗口内找到候选匹配点的索引
-        const vector<size_t> vIndices = pKF->GetKeyPointsByArea(uC, vC, th, true);
-        if(vIndices.empty()){
-            ExistReason[6]++;
-            continue;
-        }
-        // Match to the most similar keypoint in the radius
-        // Step 6 遍历寻找最佳匹配点
-
-        for(vector<size_t>::const_iterator vit=vIndices.begin(), vend=vIndices.end(); vit!=vend; vit++){
-            const size_t idx = *vit;
-            const cv::KeyPoint &kp = pKF->mvKeysUn[idx];
-            // 计算投影点与候选匹配特征点的距离，如果偏差很大，直接跳过
-            // 单目情况
-            const float &kpx = kp.pt.x;
-            const float &kpy = kp.pt.y;
-            const float ex = uC - kpx;
-            const float ey = vC - kpy;
-            const float e2 = ex*ex+ey*ey;
-            if(e2<bestDist){
-                bestDist = e2;
-                bestIdx = idx;
-            }
-        }
-        if(notRecursion){
-            if( bestDist<=TH_LOW*TH_LOW/5){
-                nFused++;
+        bool bExtendSearch = false;
+        float fSearchSize = pMP->mfObjectRadius / th;
+        vector<size_t> vIndices = pKF->GetKeyPointsByArea(uC, vC, fSearchSize, true);
+        if (vIndices.empty()) {
+            float fSearchSize = pMP->mfObjectRadius;
+            vIndices = pKF->GetKeyPointsByArea(uC, vC, fSearchSize, true);
+            bExtendSearch = true;
+            for (vector<size_t>::const_iterator vit = vIndices.begin(), vend = vIndices.end(); vit != vend; vit++) {
+                const size_t idx = *vit;
+                vvnMPMatchKPCandidate[i].push_back(idx);
             }
             continue;
         }
@@ -1851,15 +1852,37 @@ int ORBmatcher::FuseRedundantDifferIdObjectInLocalMap(KeyFrame *pKF, const vecto
         // If there is already a MapPoint replace otherwise addKFtoDB new measurement
         // Step 7 找到投影点对应的最佳匹配特征点，根据是否存在地图点来融合或新增
         // 最佳匹配距离要小于阈值
-        if(bestDist<=TH_LOW*TH_LOW/5||(bestDist<=TH_LOW*TH_LOW/4&&vIndices.size()==1)){
-            MapPoint* pMPinKF = pKF->GetMapPointByIndex(bestIdx);
-            if(pMPinKF){
+        if (bExtendSearch == false) {
+            if (notRecursion) {
+                nSingleFused++;
+                continue;
+            }
+            // Match to the most similar keypoint in the radius
+            // Step 6 遍历寻找最佳匹配点
+            for (vector<size_t>::const_iterator vit = vIndices.begin(), vend = vIndices.end(); vit != vend; vit++) {
+                const size_t idx = *vit;
+                const cv::KeyPoint &kp = pKF->mvKeysUn[idx];
+                // 计算投影点与候选匹配特征点的距离，如果偏差很大，直接跳过
+                // 单目情况
+                const float &kpx = kp.pt.x;
+                const float &kpy = kp.pt.y;
+                const float ex = uC - kpx;
+                const float ey = vC - kpy;
+                const float e2 = ex * ex + ey * ey;
+                if (e2 < bestDist) {
+                    bestDist = e2;
+                    bestIdx = idx;
+                }
+            }
+//            printf("bestIdx:%d\n",bestIdx);
+            MapPoint *pMPinKF = pKF->GetMapPointByIndex(bestIdx);
+            if (pMPinKF) {
                 // 如果最佳匹配点有对应有效地图点，选择被观测次数最多的那个替换
-                if(!pMPinKF->isBad()){
-                    if(vnSameObjectIdMap[pMPinKF->mnObjectID]==pMP->mnObjectID){
+                if (!pMPinKF->GetbBad()) {
+                    if (vnSameObjectIdMap[pMPinKF->mnObjectID] == pMP->mnObjectID) {
                         continue;
                     }
-                    int bCanSeepMPInComKF=0;
+                    int bCanSeepMPInComKF = 0;
                     map<KeyFrame *, size_t> mComObsersKFAndMPidx = pMP->GetObservationsKFAndMPIdx();
                     vector<MapPoint *> vpMapPointsOne;
                     vpMapPointsOne.emplace_back(pMPinKF);
@@ -1867,19 +1890,53 @@ int ORBmatcher::FuseRedundantDifferIdObjectInLocalMap(KeyFrame *pKF, const vecto
                          mit != mComObsersKFAndMPidx.end(); mit++) {
                         KeyFrame *pKFInpMP = (*mit).first;
                         bCanSeepMPInComKF += FuseRedundantDifferIdObjectInLocalMap(pKFInpMP, vpMapPointsOne,
-                                                                                   vnSameObjectIdMap, sLinkedObjectID, true, th);
+                                                                                   vnSameObjectIdMap, sLinkedObjectID,
+                                                                                   nMaxObjectID, true, th);
                     }
-                    if(bCanSeepMPInComKF>5){
-                        cout<<"sccessful link object "<<vnSameObjectIdMap[pMPinKF->mnObjectID]<<" and "<<vnSameObjectIdMap[pMP->mnObjectID]<<" ,co-see KF number is "<< bCanSeepMPInComKF <<endl;
-                        vnSameObjectIdMap[pMPinKF->mnObjectID]=pMP->mnObjectID;
+                    if (bCanSeepMPInComKF > max(0.3 * mComObsersKFAndMPidx.size(), 3.0)) {
+                        cout << "sccessful link object " << vnSameObjectIdMap[pMPinKF->mnObjectID] << " and "
+                             << vnSameObjectIdMap[pMP->mnObjectID] << " ,co-see KF number is "
+                             << bCanSeepMPInComKF <<endl;
+                        vnSameObjectIdMap[pMPinKF->mnObjectID] = pMP->mnObjectID;
                         sLinkedObjectID.insert(pMP->mnObjectID);
-                        nFused++;
+                        nSingleFused++;
                     }
                 }
             }
         }
     }
-    return nFused;
+
+    if (notRecursion) {
+        return nSingleFused;
+    }
+
+    //begin frame KP batch match MP
+    vector<int> vnKeyPointLink(nMaxObjectID, -1);
+    for (int iMP = 0; iMP < nMPs; iMP++) {
+        vector<bool> vbKeyPointVisit(nMaxObjectID, false);
+        if(CanGetNewKPtoRematchMP(vvnMPMatchKPCandidate, vbKeyPointVisit, vnKeyPointLink, iMP)){
+            nBatchFused++;
+        }
+    }
+    for(int iKP=0; iKP < vnKeyPointLink.size(); iKP++){
+        if(vnKeyPointLink[iKP]<0){
+            continue;
+        }
+        MapPoint *pMP = vpMapPoints[vnKeyPointLink[iKP]];
+        MapPoint *pMPinKF = pKF->GetMapPointByIndex(iKP);
+        if (!pMPinKF||!pMP) {
+            continue;
+        }
+        if (pMPinKF->GetbBad() || pMP->GetbBad()) {
+            continue;
+        }
+        cout << "sccessful link object " << vnSameObjectIdMap[pMPinKF->mnObjectID] << " and "
+             << vnSameObjectIdMap[pMP->mnObjectID] << " , by KP batch match MP."
+             << endl;//<< bCanSeepMPInComKF <<endl;
+        vnSameObjectIdMap[pMPinKF->mnObjectID] = pMP->mnObjectID;
+        sLinkedObjectID.insert(pMP->mnObjectID);
+    }
+    return nSingleFused+nBatchFused;
 }
 
 

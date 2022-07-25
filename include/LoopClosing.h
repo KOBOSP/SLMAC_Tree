@@ -204,6 +204,8 @@ protected:
     int mnfpsByCfgFile;
     int mnSingleMatchKeyPoint;
     int mnTotalMatchKeyPoint;
+    int mnSingleMatchObject;
+    int mnTotalMatchObject;
     int mnFuseMPByObjectSceneTh;
     int mnDetectLoopByFusedMPNumTh;
     std::vector<int> mvnSameObjectIdMap;

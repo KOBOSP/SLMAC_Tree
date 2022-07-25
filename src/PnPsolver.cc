@@ -136,7 +136,7 @@ PnPsolver::PnPsolver(const Frame &F, const vector<MapPoint*> &vpMapPointMatches)
     for(size_t i=0, iend=vpMapPointMatches.size(); i<iend; i++){
         MapPoint* pMP = vpMapPointMatches[i];//依次获取每个地图点
         if(pMP){
-            if(!pMP->isBad()){
+            if(!pMP->GetbBad()){
                 const cv::KeyPoint &kp = F.mvKeysUn[i];//得到2维特征点, 将KeyPoint类型变为Point2f
 
                 mvP2D.emplace_back(kp.pt);   //存放2维特征点

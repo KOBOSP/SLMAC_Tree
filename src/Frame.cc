@@ -80,7 +80,8 @@ Frame::Frame(const Frame &frame)
       mvScaleFactors(frame.mvScaleFactors), 					//深拷贝
      mvInvScaleFactors(frame.mvInvScaleFactors),			//深拷贝
      mvLevelSigma2(frame.mvLevelSigma2), 					//深拷贝
-     mvInvLevelSigma2(frame.mvInvLevelSigma2)				//深拷贝
+     mvInvLevelSigma2(frame.mvInvLevelSigma2),				//深拷贝
+      mTrtk(frame.mTrtk.clone())
 {
 	//逐个复制，其实这里也是深拷贝
     for(int i=0;i<FRAME_GRID_COLS;i++)
@@ -109,9 +110,11 @@ Frame::Frame(const Frame &frame)
  * @param[in] bf                                //baseline*f
  * @param[in] thDepth                           //区分远近点的深度阈值
  */
-Frame::Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &thDepth, std::vector<cv::KeyPoint> &vTars)
-    :mpORBvocabulary(voc),mpORBextractorLeft(extractor),mpORBextractorRight(static_cast<ORBextractor*>(NULL)),
-     mTimeStamp(timeStamp), mK(K.clone()), mDistCoef(distCoef.clone()), mThDepth(thDepth)
+Frame::Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc,
+             cv::Mat &K, cv::Mat &distCoef, const float &thDepth,
+             std::vector<cv::KeyPoint> &vTars, cv::Mat &Trtk)
+    : mpORBvocabulary(voc), mpORBextractorLeft(extractor), mpORBextractorRight(static_cast<ORBextractor*>(NULL)),
+      mTimeStamp(timeStamp), mK(K.clone()), mDistCoef(distCoef.clone()), mThDepth(thDepth), mTrtk(Trtk.clone())
 {
     // Frame ID
 	// Step 1 帧的ID 自增

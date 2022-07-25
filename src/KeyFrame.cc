@@ -52,7 +52,7 @@ KeyFrame::KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB):
         mBowVec(F.mBowVec), mFeatVec(F.mFeatVec), mnScaleLevels(F.mnScaleLevels), mfScaleFactor(F.mfScaleFactor),
         mfLogScaleFactor(F.mfLogScaleFactor), mvScaleFactors(F.mvScaleFactors), mvLevelSigma2(F.mvLevelSigma2),
         mvInvLevelSigma2(F.mvInvLevelSigma2), mnMinX(F.mnMinX), mnMinY(F.mnMinY), mnMaxX(F.mnMaxX),
-        mnMaxY(F.mnMaxY), mK(F.mK), mvpMapPoints(F.mvpMapPoints), mpKeyFrameDB(pKFDB),
+        mnMaxY(F.mnMaxY), mK(F.mK), mvpMapPoints(F.mvpMapPoints), mpKeyFrameDB(pKFDB), mTrtk(F.mTrtk.clone()),
         mpORBvocabulary(F.mpORBvocabulary), mbFirstConnection(true), mpParent(NULL), mbNotEraseInLoop(false),
         mbToBeErased(false), mbBad(false),
         mpMap(pMap)
@@ -331,7 +331,7 @@ set<MapPoint*> KeyFrame::GetAllMapPointSetInKF()
             continue;
         MapPoint* pMP = mvpMapPoints[i];
         // 如果是没有来得及删除的坏点也要进行这一步
-        if(!pMP->isBad())
+        if(!pMP->GetbBad())
             s.insert(pMP);
     }
     return s;
@@ -349,10 +349,10 @@ int KeyFrame::GetNumMapPointsBigObs(const int &minObs)
     for(int i=0; i < mnKeyPointNum; i++){
         MapPoint* pMP = mvpMapPoints[i];
         if(pMP){
-            if(!pMP->isBad()){
+            if(!pMP->GetbBad()){
                 if(bCheckObs){
                     // 满足输入阈值要求的地图点计数加1
-                    if(mvpMapPoints[i]->Observations()>=minObs){
+                    if(mvpMapPoints[i]->GetObservations() >= minObs){
                         nPoints++;
                     }
                 }
@@ -371,13 +371,10 @@ vector<MapPoint*> KeyFrame::GetAllMapPointVectorInKF(bool NeedObjectMP)
     unique_lock<mutex> lock(mMutexFeatures);
     vector<MapPoint*> tmp;
     for(int i=0;i<mnKeyPointNum;i++){
-        MapPoint* pMP = mvpMapPoints[i];
-        if(mvpMapPoints[i]){
-            if(pMP->isBad()){
-                continue;
-            }
-            if(pMP->mnObjectID>0 && !NeedObjectMP){
-                continue;
+        MapPoint* pMP = mvpMapPoints[i];// because return MP is in sequence, so should not ignore it even NULL
+        if(pMP){
+            if(pMP->GetbBad()||(pMP->mnObjectID>0 && !NeedObjectMP)){
+                pMP = NULL;
             }
         }
         tmp.emplace_back(pMP);
@@ -392,7 +389,7 @@ vector<MapPoint*> KeyFrame::GetAllObjctsInKF()
     for(int i=0;i<mnKeyPointNum;i++){
         MapPoint* pMP = mvpMapPoints[i];
         if(pMP){
-            if(pMP->isBad()){
+            if(pMP->GetbBad()){
                 continue;
             }
             if(pMP->mnObjectID>0){
@@ -407,7 +404,12 @@ vector<MapPoint*> KeyFrame::GetAllObjctsInKF()
 MapPoint* KeyFrame::GetMapPointByIndex(const size_t &idx)
 {
     unique_lock<mutex> lock(mMutexFeatures);
-    return mvpMapPoints[idx];
+    if(idx>mnKeyPointNum){
+        return NULL;
+    }
+    else{
+        return mvpMapPoints[idx];
+    }
 }
 
 /*
@@ -437,7 +439,7 @@ void KeyFrame::UpdateConnectedKeyFrameAndWeights(){
         MapPoint* pMP = *vit;
         if(!pMP)
             continue;
-        if(pMP->isBad())
+        if(pMP->GetbBad())
             continue;
         // 对于每一个地图点，observations记录了可以观测到该地图点的所有关键帧
         map<KeyFrame*,size_t> observations = pMP->GetObservationsKFAndMPIdx();
@@ -835,7 +837,7 @@ vector<size_t> KeyFrame::GetMapPointByObjectID(int ClassID){
     for(int i=0;i<mvpMapPoints.size();i++){
         if(!mvpMapPoints[i])
             continue;
-        if(mvpMapPoints[i]->isBad())
+        if(mvpMapPoints[i]->GetbBad())
             continue;
         if(mvpMapPoints[i]->mnObjectID == ClassID){
             vIndices.emplace_back(i);
@@ -873,7 +875,7 @@ float KeyFrame::ComputeSceneMedianDepth(const int q)
     for(int i=0; i < mnKeyPointNum; i++){
         if(vpMapPoints[i]){
             MapPoint* pMP = vpMapPoints[i];
-            if(pMP->isBad()){
+            if(pMP->GetbBad()){
                 continue;
             }
             cv::Mat x3Dw = pMP->GetWorldPos();

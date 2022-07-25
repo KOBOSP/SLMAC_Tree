@@ -86,7 +86,7 @@ Sim3Solver::Sim3Solver(KeyFrame *pKF1, KeyFrame *pKF2, const vector<MapPoint *> 
             MapPoint* pMP2 = vpMatched12[i1]; //vpMatched12[i1] 是在KF2中对应的匹配地图点
             if(!pMP1 || !pMP2)
                 continue;
-            if(pMP1->isBad() || pMP2->isBad())
+            if(pMP1->GetbBad() || pMP2->GetbBad())
                 continue;
             // indexKF1和indexKF2是匹配特征点的索引
             int indexKF1 = pMP1->GetIndexInKeyFrame(pKF1);

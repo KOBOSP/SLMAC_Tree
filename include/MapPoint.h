@@ -62,7 +62,7 @@ public:
      * @param[in] pRefKF    KeyFrame
      * @param[in] pMap      Map  
      */
-    MapPoint(const cv::Mat &Pos, KeyFrame* pRefKF, Map* pMap, int nObjectID=-1);
+    MapPoint(const cv::Mat &Pos, KeyFrame* pRefKF, Map* pMap, int nObjectID=-1, float fsize=0);
 
     /**
      * @brief 设置世界坐标系下地图点的位姿 
@@ -95,7 +95,7 @@ public:
     std::map<KeyFrame*,size_t> GetObservationsKFAndMPIdx();
     
     // 获取当前地图点的被观测次数
-    int Observations();
+    int GetObservations();
 
     /**
      * @brief 添加观测
@@ -140,7 +140,8 @@ public:
      * @return true 
      * @return false 
      */
-    bool isBad();
+    bool GetbBad();
+    void SetbBad(bool val);
 
     /**
      * @brief 在形成闭环的时候，会更新 KeyFrame 与 MapPoint 之间的关系
@@ -215,9 +216,9 @@ public:
     //呐,如果是从帧中创建的话,会将普通帧的id存放于这里
     const long int mnFirstFrame; ///< 创建该MapPoint的帧ID（即每一关键帧有一个帧ID）
 
-    // 被观测到的相机数目，单目+1，双目或RGB-D则+2
-    int mnObserve;
+
     int mnObjectID;
+    float mfObjectRadius;
 
     // Variables used by the tracking
     float mTrackProjX;             ///< 当前地图点投影到某帧上后的坐标
@@ -254,7 +255,8 @@ public:
     long unsigned int mnCorrectedReference;
     // 全局BA优化后(如果当前地图点参加了的话),这里记录优化后的位姿
     cv::Mat mPosGBA;
-    std::vector<cv::Mat> mvObjectIDPos;
+    std::vector< pair<cv::Mat,int> > mvObjectReplacePosAndTimes;//save the MP's all possible position
+
     // 如果当前点的位姿参与到了全局BA优化,那么这个变量记录了那个引起全局BA的"当前关键帧"的id
     long unsigned int mnBAGlobalForKF;
 
@@ -262,6 +264,9 @@ public:
     static std::mutex mGlobalMutex;
 
 protected:
+
+    // 被观测到的相机数目，单目+1，双目或RGB-D则+2
+    int mnObserve;
 
     // Position in absolute coordinates
     cv::Mat mWorldPos; ///< MapPoint在世界坐标系下的坐标
@@ -305,7 +310,8 @@ protected:
     std::mutex mMutexPos;
     ///对当前地图点的特征信息进行操作的时候的互斥量
     std::mutex mMutexFeatures;
-
+    ///
+    std::mutex mMutexBad;
 };
 
 } //namespace ORB_SLAM

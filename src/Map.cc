@@ -40,6 +40,7 @@ namespace ORB_SLAM2
 //构造函数,地图点中最大关键帧id归0
 Map::Map(int nMaxObjectID): mnMaxKeyFrameID(0)
 {
+    mnMaxObjectID=nMaxObjectID;
     mvnObjectNumByID.resize(nMaxObjectID,0);
 }
 

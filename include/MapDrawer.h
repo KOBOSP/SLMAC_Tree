@@ -105,6 +105,8 @@ private:
     float mCameraSize;
     ///绘制相机的线宽
     float mCameraLineWidth;
+    int mnColorSetSize;
+    vector<cv::Point3f> mvColorSet;
 
     ///相机位置
     cv::Mat mCameraPose;

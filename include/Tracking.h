@@ -84,7 +84,7 @@ public:
     Tracking(System* pSys, ORBVocabulary* pVoc, FrameDrawer* pFrameDrawer, MapDrawer* pMapDrawer, Map* pMap,
              KeyFrameDatabase* pKFDB, const string &strSettingPath, const string &strFrameTargetFile, const int sensor);
 
-    // Preprocess the input and call Track(). Extract features and performs stereo matching.
+    // Preprocess the input and call DoTrack(). Extract features and performs stereo matching.
     // 下面的函数都是对不同的传感器输入的图像进行处理(转换成为灰度图像),并且调用Tracking线程
 
     /**
@@ -94,8 +94,12 @@ public:
      * @param[in] timestamp     时间戳
      * @return cv::Mat          世界坐标系到该帧相机坐标系的变换矩阵
      */
-    cv::Mat GrabImageMonocular(const cv::Mat &im, const double &timestamp, int FrameID);
+    void CreateMonocularFrame(const cv::Mat &im, const double &timestamp, int FrameID, cv::Mat &Trtk);
 
+
+    // Main tracking function. It is independent of the input sensor.
+    /** @brief 主追踪进程 */
+    cv::Mat DoTrack();
     /**
      * @brief 设置局部地图句柄
      * 
@@ -125,9 +129,6 @@ public:
      * @param[in] flag 设置仅仅进行跟踪的标志位
      */
     void InformOnlyTracking(const bool &flag);
-
-
-public:
 
     // Tracking states
     ///跟踪状态类型
@@ -187,11 +188,6 @@ public:
     void Reset();
 
 protected:
-
-    // Main tracking function. It is independent of the input sensor.
-    /** @brief 主追踪进程 */
-    void Track();
-
 
     // Map initialization for monocular
     /** @brief 单目输入的时候所进行的初始化操作 */

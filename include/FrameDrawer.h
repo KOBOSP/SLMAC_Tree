@@ -92,6 +92,8 @@ protected:
     cv::Mat mIm;
     ///当前帧中特征点的数目
     int mnKeyNumInFrame;
+    int mnColorSetSize;
+    vector<cv::Point3f> mvColorSet;
     ///TrackWithReferenceKeyFrame or TrackWithMotionModel
     bool mbMotionMethodTrackOK;
     ///当前帧中的特征点

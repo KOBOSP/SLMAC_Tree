@@ -362,6 +362,7 @@ namespace ORB_SLAM2 {
         cv::Mat mTcwGBA;
         // 进行全局BA优化之前的当前关键帧的位姿. 之所以要记录这个是因为在全局优化之后还要根据该关键帧在优化之前的位姿来更新地图点,which地图点的参考关键帧就是该关键帧
         cv::Mat mTcwBefGBA;
+        cv::Mat mTrtk;
         // 记录是由于哪个"当前关键帧"触发的全局BA,用来防止重复写入的事情发生(浪费时间)
         long unsigned int mnBAGlobalForKF;
 
@@ -414,7 +415,6 @@ namespace ORB_SLAM2 {
         cv::Mat Tcw;    // 当前相机的位姿，世界坐标系到相机坐标系
         cv::Mat Twc;    // 当前相机位姿的逆
         cv::Mat Ow;     // 相机光心(左目)在世界坐标系下的坐标,这里和普通帧中的定义是一样的
-
         cv::Mat Cw; ///< Stereo middel point. Only for visualization
 
         /// MapPoints associated to keypoints

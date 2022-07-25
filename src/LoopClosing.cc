@@ -62,12 +62,16 @@ LoopClosing::LoopClosing(Map *pMap, KeyFrameDatabase *pDB, ORBVocabulary *pVoc, 
     mbSystemWithoutLoopClose=bool(temp);
     mnSingleMatchKeyPoint = fSettings["LoopClose.SingleMatchKeyPoint"];
     mnTotalMatchKeyPoint = fSettings["LoopClose.TotalMatchKeyPoint"];
+    mnSingleMatchObject = fSettings["LoopClose.SingleMatchObject"];
+    mnTotalMatchObject = fSettings["LoopClose.TotalMatchObject"];
     mnFuseMPByObjectSceneTh = fSettings["LoopClose.FuseMPByObjectSceneThreshold"];
     mnDetectLoopByFusedMPNumTh = fSettings["LoopClose.DetectLoopByFusedMPNumThreshold"];
     cout << "- LoopClose.CovisibilityConsistencyTh: " << mnCovisibilityConsistencyTh << endl;
     cout << "- LoopClose.SystemWithoutLoopClose: " << mbSystemWithoutLoopClose << endl;
     cout << "- LoopClose.SingleMatchKeyPoint " << mnSingleMatchKeyPoint << endl;
     cout << "- LoopClose.TotalMatchKeyPoint: " << mnTotalMatchKeyPoint << endl;
+    cout << "- LoopClose.SingleMatchObject " << mnSingleMatchObject << endl;
+    cout << "- LoopClose.TotalMatchObject: " << mnTotalMatchObject << endl;
     cout << "- LoopClose.FuseMPByObjectSceneTh: " << mnFuseMPByObjectSceneTh << endl;
     cout << "- LoopClose.DetectLoopByFusedMPNumTh: " << mnDetectLoopByFusedMPNumTh << endl;
     cout << "- Track.MaxObjectID: " << nMaxObjectID << endl;
@@ -100,6 +104,7 @@ void LoopClosing::Run()
             // 在LocalMapping中通过 InsertKeyFrameInQueue 将关键帧插入闭环检测队列mlpLoopKeyFrameQueue
             // Step 1 查看闭环检测队列mlpLoopKeyFrameQueue中有没有关键帧进来
             if (CheckNewKeyFrames()) {
+                msLinkedObjectID.clear();
                 // Detect loop candidates and check covisibility consistency
                 if (DetectLoopByMapPoint()) {
                     // Compute similarity transformation [sR|t]
@@ -111,17 +116,17 @@ void LoopClosing::Run()
                 }
                 if(mpCurrentKF){
                     if(!mpCurrentKF->isBad()){
-                        FuseSameIdObjectInGlobalMap();
+                        //FuseSameIdObjectInGlobalMap();
                         LinkObjectIdByProjectGlobalMapToCurrentKF();
                     }
                 }
             }
             else{
                 LinkObjectIdByProjectGlobalMapToAllKF();
-                FuseSameIdObjectInGlobalMap();
+                //FuseSameIdObjectInGlobalMap();
             }
             if(msLinkedObjectID.size()>mnFuseMPByObjectSceneTh){//begin small loop
-                if(FuseMapPointsBySeeSameObjectId()>mnDetectLoopByFusedMPNumTh){//fused point and judge whether there is a loop by fused MapPoint number
+                if(FuseMapPointsBySeeSameObjectId()>mnDetectLoopByFusedMPNumTh){//fused map point in just now fused KF and judge whether there is a loop by fused MapPoint number
                     mpCurrentKF->SetNotErase();
                     if (ComputeBoWAndSim3ToMatchPointsByObject()) {//must exist loop by BoW and Sim3
                         CorrectLoopByObject();// Perform loop fusion and pose graph optimization
@@ -149,17 +154,17 @@ void LoopClosing::Run()
 //4:project the MP in this KF to current KF to fuse
 //5:project the MP in current KF to this KF to fuse
 int LoopClosing::FuseMapPointsBySeeSameObjectId(){
-    if(mLastMapPointCoSeeKFId+mnfpsByCfgFile/5>mpCurrentKF->mnId){
+    if(mLastMapPointCoSeeKFId+mnfpsByCfgFile*3>mpCurrentKF->mnId){
         return 0;
     }
     mvpEnoughConsistentCandidates.clear();
     mLastMapPointCoSeeKFId=mpCurrentKF->mnId;
     int Fused=0;
-    vector<MapPoint*> vObsInMp;
+    vector<MapPoint*> vObsInMp;//AllObjectsInMap
     mpMap->GetAllObjectsInMap(vObsInMp);
-    vector<int> vnObjectsCoId;
+    vector<int> vnObjectsCoId;//the object can be see in linked object's KF
     vnObjectsCoId.resize(mnMaxObjectID,0);
-    vector<MapPoint*> vpCandidateObjCoVis;
+    vector<MapPoint*> vpCandidateObjCoVis;//the object can be see in linked object's KF and current KF
     vector<KeyFrame*> vpCandidateKF;//current mappoint project into this KF
     vector<MapPoint*> vpCandidateMP;//this same id mappoint project into current KF
     vpCandidateObjCoVis.resize(msLinkedObjectID.size());
@@ -172,7 +177,7 @@ int LoopClosing::FuseMapPointsBySeeSameObjectId(){
         MapPoint* pOb = *vit;
         if(!pOb)
             continue;
-        if(pOb->isBad() || pOb->mnFuseCandidateInLC == mpCurrentKF->mnId)
+        if(pOb->GetbBad() || pOb->mnFuseCandidateInLC == mpCurrentKF->mnId)
             continue;
         if(pOb->IsInKeyFrame(mpCurrentKF)){
             continue;
@@ -187,7 +192,7 @@ int LoopClosing::FuseMapPointsBySeeSameObjectId(){
         MapPoint* pOb = *vit;
         if(!pOb)
             continue;
-        if(pOb->isBad())
+        if(pOb->GetbBad())
             continue;
         map<KeyFrame*, size_t> mMPGObservKFAndIdx = pOb->GetObservationsKFAndMPIdx();
         for(map<KeyFrame*,size_t>::iterator mit=mMPGObservKFAndIdx.begin(), mend=mMPGObservKFAndIdx.end(); mit!=mend; mit++){
@@ -208,7 +213,7 @@ int LoopClosing::FuseMapPointsBySeeSameObjectId(){
                 if(!pMP)
                     continue;
                 // 如果地图点是坏点，或者已经加进集合vpFuseCandidates，跳过
-                if(pMP->isBad() || pMP->mnFuseCandidateInLC == mpCurrentKF->mnId)
+                if(pMP->GetbBad() || pMP->mnFuseCandidateInLC == mpCurrentKF->mnId)
                     continue;
                 pMP->mnFuseCandidateInLC = mpCurrentKF->mnId;
                 vpCandidateMP.emplace_back(pMP);
@@ -236,7 +241,7 @@ int LoopClosing::FuseMapPointsBySeeSameObjectId(){
     for(vector<MapPoint*>::const_iterator vit=vpMPInCurrentKF.begin(), vend=vpMPInCurrentKF.end(); vit != vend; vit++){
         MapPoint* pMP=(*vit);
         if(pMP){
-            if(!pMP->isBad()){
+            if(!pMP->GetbBad()){
                 // 在所有找到pMP的关键帧中，获得最佳的描述子
                 pMP->ComputeDistinctiveDescriptors();
                 // 更新平均观测方向和观测距离
@@ -255,7 +260,6 @@ int LoopClosing::FuseMapPointsBySeeSameObjectId(){
 
 void LoopClosing::LinkObjectIdByProjectGlobalMapToCurrentKF(){
     ORBmatcher matcher(0.6, false);
-    msLinkedObjectID.clear();
     vector<MapPoint*> ObjectsInGlobalMap;
     mpMap->GetAllObjectsInMap(ObjectsInGlobalMap);
     for(vector<MapPoint*>::iterator vit=ObjectsInGlobalMap.begin(), vend=ObjectsInGlobalMap.end(); vit != vend; vit++) {
@@ -264,13 +268,13 @@ void LoopClosing::LinkObjectIdByProjectGlobalMapToCurrentKF(){
             vit=ObjectsInGlobalMap.erase(vit);
             continue;
         }
-        if(pMPObj->isBad()){
+        if(pMPObj->GetbBad()){
             vit=ObjectsInGlobalMap.erase(vit);
             continue;
         }
     }
     if(!ObjectsInGlobalMap.empty()){
-        matcher.FuseRedundantDifferIdObjectInLocalMap(mpCurrentKF, ObjectsInGlobalMap, mvnSameObjectIdMap, msLinkedObjectID, false);
+        matcher.FuseRedundantDifferIdObjectInLocalMap(mpCurrentKF, ObjectsInGlobalMap, mvnSameObjectIdMap, msLinkedObjectID, mpMap->mnMaxObjectID, false);
     }
 }
 
@@ -284,7 +288,7 @@ void LoopClosing::LinkObjectIdByProjectGlobalMapToAllKF(){
             vit=ObjectsInGlobalMap.erase(vit);
             continue;
         }
-        if(pMPObj->isBad()){
+        if(pMPObj->GetbBad()){
             vit=ObjectsInGlobalMap.erase(vit);
             continue;
         }
@@ -303,10 +307,10 @@ void LoopClosing::LinkObjectIdByProjectGlobalMapToAllKF(){
         if(pKFG->isBad()){
             continue;
         }
-        if(pKFG->mnId%3!=0){
-            continue;
-        }
-        matcher.FuseRedundantDifferIdObjectInLocalMap(pKFG, ObjectsInGlobalMap, mvnSameObjectIdMap, msLinkedObjectID, false);
+//        if((pKFG->mnId+mpCurrentKF->mnId)%5!=0){
+//            continue;
+//        }
+        matcher.FuseRedundantDifferIdObjectInLocalMap(pKFG, ObjectsInGlobalMap, mvnSameObjectIdMap, msLinkedObjectID, mpMap->mnMaxObjectID, false);
     }
 }
 
@@ -318,7 +322,7 @@ int LoopClosing::GetRootIdxToSameObjectIdMap(int idx){
 }
 
 void LoopClosing::FuseSameIdObjectInGlobalMap(){
-    int nMaxObjectID=-1;
+    int nMaxObjectID=-1, nMinObjectID=99999;
     vector<MapPoint*> ObjectsInGlobalMap;
     mpMap->GetAllObjectsInMap(ObjectsInGlobalMap);
     vector<vector<MapPoint*>> vvpSameIDObject;
@@ -327,34 +331,31 @@ void LoopClosing::FuseSameIdObjectInGlobalMap(){
         MapPoint* pMPObj = *vit;
         if(!pMPObj)
             continue;
-        if(pMPObj->isBad())
+        if(pMPObj->GetbBad())
             continue;
         pMPObj->mnObjectID=GetRootIdxToSameObjectIdMap(pMPObj->mnObjectID);
-        if(pMPObj->mvObjectIDPos.size()>1){
-            vvpSameIDObject[pMPObj->mnObjectID].insert(vvpSameIDObject[pMPObj->mnObjectID].begin(),pMPObj);
-        }
-        else{
-            vvpSameIDObject[pMPObj->mnObjectID].emplace_back(pMPObj);
-        }
+        vvpSameIDObject[pMPObj->mnObjectID].emplace_back(pMPObj);
         if(pMPObj->mnObjectID > nMaxObjectID){
             nMaxObjectID=pMPObj->mnObjectID;
+        }
+        if(pMPObj->mnObjectID < nMinObjectID){
+            nMinObjectID=pMPObj->mnObjectID;
         }
     }
     for(int i=0;i<nMaxObjectID;i++){
         if(vvpSameIDObject[i].size()<2){
             continue;
         }
-        cv::Mat tmpMat=vvpSameIDObject[i][0]->GetWorldPos()*vvpSameIDObject[i][0]->mvObjectIDPos.size();
+        int nReplaceTimes = vvpSameIDObject[i][0]->mvObjectReplacePosAndTimes.size();
+        cv::Mat tmpMat=vvpSameIDObject[i][0]->GetWorldPos() * vvpSameIDObject[i][0]->mvObjectReplacePosAndTimes.size();
         for(vector<MapPoint*>::iterator vit=vvpSameIDObject[i].begin()+1, vend=vvpSameIDObject[i].end(); vit != vend; vit++){
             MapPoint* pMPObj = *vit;
-            tmpMat+=pMPObj->GetWorldPos();
-            vvpSameIDObject[i][0]->mvObjectIDPos.emplace_back(pMPObj->GetWorldPos());
-        }
-        vvpSameIDObject[i][0]->SetWorldPos(tmpMat/vvpSameIDObject[i][0]->mvObjectIDPos.size());
-        for(vector<MapPoint*>::iterator vit=vvpSameIDObject[i].begin()+1, vend=vvpSameIDObject[i].end(); vit != vend; vit++){
-            MapPoint* pMPObj = *vit;
+            nReplaceTimes += pMPObj->mvObjectReplacePosAndTimes.size();
+            tmpMat+=pMPObj->GetWorldPos() * pMPObj->mvObjectReplacePosAndTimes.size();
+            vvpSameIDObject[i][0]->mvObjectReplacePosAndTimes.push_back(pair<cv::Mat,int>(pMPObj->GetWorldPos(),pMPObj->mvObjectReplacePosAndTimes.size()));
             pMPObj->Replace(vvpSameIDObject[i][0]);
         }
+        vvpSameIDObject[i][0]->SetWorldPos(tmpMat / nReplaceTimes);
         vvpSameIDObject[i].clear();
     }
 }
@@ -755,7 +756,7 @@ bool LoopClosing::ComputeBoWAndSim3ToMatchPointsByMapPoint()
             MapPoint* pMP = vpMapPoints[i];
             if(pMP){
                 // mnLoopPointForKF 用于标记，避免重复添加
-                if(!pMP->isBad() && pMP->mnLoopPointForKF!=mpCurrentKF->mnId){
+                if(!pMP->GetbBad() && pMP->mnLoopPointForKF != mpCurrentKF->mnId){
                     mvpLoopMapPoints.emplace_back(pMP);
                     // 标记一下
                     pMP->mnLoopPointForKF=mpCurrentKF->mnId;
@@ -924,7 +925,7 @@ void LoopClosing::CorrectLoopByMapPoint()
                 if(!pMPi)
                     continue;
                 // 跳过无效地图点
-                if(pMPi->isBad()){
+                if(pMPi->GetbBad()){
                     continue;
                 }
                 // 标记，防止重复矫正
@@ -1117,19 +1118,17 @@ bool LoopClosing::ComputeBoWAndSim3ToMatchPointsByObject()
             continue;
         }
         vvpMPMatchesByBoW[i] = vector<MapPoint*>(mpCurrentKF->mvKeysUn.size(),static_cast<MapPoint*>(NULL));
-        int kkk=0;
         for(vector<MapPoint*>::iterator vit = vpMapPointsInCurKF.begin(), vend=vpMapPointsInCurKF.end();vit!=vend;vit++ ){
             MapPoint* pMP = (*vit);//find mappoint in anthor KF, to get the number of covisit mappoint
             if(!pMP){
                 continue;
             }
-            if(pMP->isBad()){
+            if(pMP->GetbBad()){
                 continue;
             }
             int IndexInCurKF = pMP->GetIndexInKeyFrame(mpCurrentKF), IndexInCanKF = pMP->GetIndexInKeyFrame(pKF);
             if(IndexInCurKF>0&&IndexInCanKF>0){
                 vvpMPMatchesByBoW[i][IndexInCurKF]=pMP;
-                kkk++;
             }
         }
         // Step 1.3 为保留的候选帧构造Sim3求解器
@@ -1246,7 +1245,7 @@ bool LoopClosing::ComputeBoWAndSim3ToMatchPointsByObject()
             MapPoint* pMP = vpMapPoints[i];
             if(pMP){
                 // mnLoopPointForKF 用于标记，避免重复添加
-                if(!pMP->isBad() && pMP->mnLoopPointForKF!=mpCurrentKF->mnId){
+                if(!pMP->GetbBad() && pMP->mnLoopPointForKF != mpCurrentKF->mnId){
                     mvpLoopMapPoints.emplace_back(pMP);
                     // 标记一下
                     pMP->mnLoopPointForKF=mpCurrentKF->mnId;
@@ -1418,7 +1417,7 @@ void LoopClosing::CorrectLoopByObject()
                 if(!pMPi)
                     continue;
                 // 跳过无效地图点
-                if(pMPi->isBad()){
+                if(pMPi->GetbBad()){
                     continue;
                 }
                 // 标记，防止重复矫正
@@ -1725,7 +1724,7 @@ void LoopClosing::RunGlobalBundleAdjustment(unsigned long nLoopKF)
             // Step 3 遍历每一个地图点并用更新的关键帧位姿来更新地图点位置
             for(size_t i=0; i<vpMPs.size(); i++){
                 MapPoint* pMP = vpMPs[i];
-                if(pMP->isBad())
+                if(pMP->GetbBad())
                     continue;
                 // 如果这个地图点直接参与到了全局BA优化的过程,那么就直接重新设置器位姿即可
                 if(pMP->mnBAGlobalForKF==nLoopKF){

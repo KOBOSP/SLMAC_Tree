@@ -98,7 +98,9 @@ public:
      * @param[in] bf                                //baseline*f
      * @param[in] thDepth                           //区分远近点的深度阈值
      */
-    Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &thDepth, std::vector<cv::KeyPoint> &vTars);
+    Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extractor,
+          ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &thDepth,
+          std::vector<cv::KeyPoint> &vTars, cv::Mat &Trtk);
 
 
     // Compute Bag of Words representation.
@@ -300,6 +302,7 @@ public:
 
     // Camera pose.
     cv::Mat mTcw; ///< 相机姿态 世界坐标系到相机坐标坐标系的变换矩阵,是我们常规理解中的相机位姿
+    cv::Mat mTrtk;
 
     // Current and Next Frame id.
     // 类的静态成员变量，这些变量则是在整个系统开始执行的时候被初始化的——它在全局区被初始化

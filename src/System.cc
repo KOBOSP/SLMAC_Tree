@@ -139,7 +139,7 @@ System::System(const string &strVocFile,					//词典文件路径
 }
 
 //同理，输入为单目图像时的追踪器接口
-cv::Mat System::TrackMonocular(const cv::Mat &im, const double &timestamp, int FrameID)
+cv::Mat System::TrackMonocular(const cv::Mat &im, const double &timestamp, int FrameID, cv::Mat &Trtk)
 {
     if(mSensor!=MONOCULAR){
         cerr << "ERROR: you called TrackMonocular but input sensor was not set to Monocular." << endl;
@@ -180,12 +180,15 @@ cv::Mat System::TrackMonocular(const cv::Mat &im, const double &timestamp, int F
         }
     }
     //获取相机位姿的估计结果
-    cv::Mat Tcw = mpTracker->GrabImageMonocular(im,timestamp,FrameID);
+    mpTracker->CreateMonocularFrame(im, timestamp, FrameID, Trtk);
+    // Step 3 ：跟踪
+    cv::Mat Tcw = mpTracker->DoTrack();
+    //返回当前帧的位姿
+
     unique_lock<mutex> lock2(mMutexState);
     mTrackingState = mpTracker->mState;
     mTrackedMapPoints = mpTracker->mCurrentFrame.mvpMapPoints;
     mTrackedKeyPointsUn = mpTracker->mCurrentFrame.mvKeysUn;
-
     return Tcw;
 }
 

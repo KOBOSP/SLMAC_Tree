@@ -191,7 +191,7 @@ void LocalMapping::ProcessNewKeyFrame()
     for(size_t i=0; i<vpMapPointMatches.size(); i++){
         MapPoint* pMP = vpMapPointMatches[i];
         if(pMP){
-            if(!pMP->isBad()){
+            if(!pMP->GetbBad()){
                 if(!pMP->IsInKeyFrame(mpCurrentKeyFrame)){
                     // 如果地图点不是来自当前帧的观测（比如来自局部地图点TrackWithLocalMap），为当前地图点添加观测
                     pMP->AddObservation(mpCurrentKeyFrame, i);
@@ -234,7 +234,7 @@ void LocalMapping::CullRecentAddedMapPoints()
         if(!pMP){
             continue;
         }
-        if(pMP->isBad()){
+        if(pMP->GetbBad()){
             // Step 2.1：已经是坏点的地图点仅从队列中删除
             lit = mlpRecentAddedMapPoints.erase(lit);
         }
@@ -247,7 +247,7 @@ void LocalMapping::CullRecentAddedMapPoints()
             pMP->SetBadFlag();
             lit = mlpRecentAddedMapPoints.erase(lit);
         }
-        else if(((int)nCurrentKFid-(int)pMP->mnFirstKFid)>= 3 && pMP->Observations()<=nThObs){
+        else if(((int)nCurrentKFid-(int)pMP->mnFirstKFid)>= 3 && pMP->GetObservations() <= nThObs){
             // Step 2.3：从该点建立开始，到现在已经过了不小于2个关键帧
             // 但是观测到该点的相机数却不超过阈值cnThObs，从地图中删除
             pMP->SetBadFlag();
@@ -323,7 +323,7 @@ void LocalMapping::CreateNewMapPointsAndObjectsByNerborKFs()
         // 基线与景深的比例
         const float ratioBaselineDepth = baseline/medianDepthKF2;
         // 如果比例特别小，基线太短恢复3D点不准，那么跳过当前邻接的关键帧，不生成3D点
-        if(ratioBaselineDepth<0.1)
+        if(ratioBaselineDepth<0.16)//5m/30m=0.1666
             continue;
 
         // Compute Fundamental Matrix
@@ -380,11 +380,12 @@ void LocalMapping::CreateNewMapPointsAndObjectsByNerborKFs()
 
             // Step 6.4：三角化恢复3D点
             cv::Mat x3D;
-            // cosParallaxRays>0 && (bStereo1 || bStereo2 || cosParallaxRays<0.9998)表明视差角正常,0.9998 对应1°
+            // cosParallaxRays>0 && (bStereo1 || bStereo2 || cosParallaxRays<0.9998)表明视差角正常,0.9998 对应1°， 0.9848=10, 0.9659=cos(15d) 0.9397=cos(20d)
             // cosParallaxRays < cosParallaxStereo 表明匹配点对夹角大于双目本身观察三维点夹角
             // 匹配点对夹角大，用三角法恢复3D点
             // 参考：https://github.com/raulmur/ORB_SLAM2/issues/345
-            if(cosParallaxRays>0 && cosParallaxRays<0.9998){
+            if(cosParallaxRays>0 && (kp1.class_id<0 && cosParallaxRays<0.9848) or (kp1.class_id>0 && cosParallaxRays<0.939711)){//tan-1(5/30)=9.46
+                //(kp1.class_id<0 && cosParallaxRays>0 && cosParallaxRays<0.9960) || ((kp1.class_id>0 &&
                 // Linear Triangulation Method
                 // 见Initializer.cc的 GetTriangulMapPoint 函数,实现是一样的,顶多就是把投影矩阵换成了变换矩阵
                 cv::Mat A(4,4,CV_32F);
@@ -403,8 +404,9 @@ void LocalMapping::CreateNewMapPointsAndObjectsByNerborKFs()
                 // 归一化成为齐次坐标,然后提取前面三个维度作为欧式坐标
                 x3D = x3D.rowRange(0,3)/x3D.at<float>(3);
             }
-            else
+            else{
                 continue; //No stereo and very low parallax, 放弃
+            }
 
             // 为方便后续计算，转换成为了行向量
             cv::Mat x3Dt = x3D.t();
@@ -412,12 +414,14 @@ void LocalMapping::CreateNewMapPointsAndObjectsByNerborKFs()
             //Check triangulation in front of cameras
             // Step 6.5：检测生成的3D点是否在相机前方,不在的话就放弃这个点
             float z1 = Rcw1.row(2).dot(x3Dt)+tcw1.at<float>(2);
-            if(z1<=0)
+            if(z1<=0){
                 continue;
+            }
 
             float z2 = Rcw2.row(2).dot(x3Dt)+tcw2.at<float>(2);
-            if(z2<=0)
+            if(z2<=0){
                 continue;
+            }
 
             //Check reprojection error in first keyframe
             // Step 6.6：计算3D点在当前关键帧下的重投影误差
@@ -469,7 +473,7 @@ void LocalMapping::CreateNewMapPointsAndObjectsByNerborKFs()
 
             // Triangulation is succesfull
             // Step 6.8：三角化生成3D点成功，构造成MapPoint
-            MapPoint* pMP = new MapPoint(x3D,mpCurrentKeyFrame,mpMap,kp1.class_id);
+            MapPoint* pMP = new MapPoint(x3D,mpCurrentKeyFrame,mpMap,kp1.class_id,kp1.size);
 
             // Step 6.9：为该MapPoint添加属性：
             // a.观测到该MapPoint的关键帧
@@ -573,7 +577,7 @@ void LocalMapping::FuseMapPointsByNeighbors()
             if(!pMP)
                 continue;
             // 如果地图点是坏点，或者已经加进集合vpFuseCandidates，跳过
-            if(pMP->isBad() || pMP->mnFuseCandidateInLM == mpCurrentKeyFrame->mnId)
+            if(pMP->GetbBad() || pMP->mnFuseCandidateInLM == mpCurrentKeyFrame->mnId)
                 continue;
             // 加入集合，并标记已经加入
             pMP->mnFuseCandidateInLM = mpCurrentKeyFrame->mnId;
@@ -591,7 +595,7 @@ void LocalMapping::FuseMapPointsByNeighbors()
     for(size_t i=0, iend=vpMapPointMatches.size(); i<iend; i++){
         MapPoint* pMP=vpMapPointMatches[i];
         if(pMP){
-            if(!pMP->isBad()){
+            if(!pMP->GetbBad()){
                 // 在所有找到pMP的关键帧中，获得最佳的描述子
                 pMP->ComputeDistinctiveDescriptors();
                 // 更新平均观测方向和观测距离
@@ -623,7 +627,7 @@ void LocalMapping::FuseObjectsInGlobalMap(){
         MapPoint* pMPC = *vitMPC;
         if(!pMPC)
             continue;
-        if(pMPC->isBad())
+        if(pMPC->GetbBad())
             continue;
         pMPC->mnFuseCandidateInLM=mpCurrentKeyFrame->mnId;
         //all the mappoint in global map
@@ -632,7 +636,7 @@ void LocalMapping::FuseObjectsInGlobalMap(){
             if(!pMPG){
                 continue;
             }
-            if(pMPG->isBad()){
+            if(pMPG->GetbBad()){
                 continue;
             }
             //two mappoint have same object id
@@ -674,7 +678,7 @@ void LocalMapping::FuseObjectsInGlobalMap(){
             continue;
         matcher.FuseRedundantMapPointAndSameIdObjectInLocalMap(pKF, vpObjectInCurKF);
     }
-        matcher.FuseRedundantMapPointAndSameIdObjectInLocalMap(mpCurrentKeyFrame, vpCandidateMP);
+    matcher.FuseRedundantMapPointAndSameIdObjectInLocalMap(mpCurrentKeyFrame, vpCandidateMP);
 
     // UpdateImgKPMPState points
     // Step 5：更新当前帧地图点的描述子、深度、平均观测方向等属性
@@ -682,7 +686,7 @@ void LocalMapping::FuseObjectsInGlobalMap(){
     for(vector<MapPoint*>::const_iterator vit=vpObjectInCurKF.begin(), vend=vpObjectInCurKF.end(); vit!=vend; vit++){
         MapPoint* pMP=(*vit);
         if(pMP){
-            if(!pMP->isBad()){
+            if(!pMP->GetbBad()){
                 // 在所有找到pMP的关键帧中，获得最佳的描述子
                 pMP->ComputeDistinctiveDescriptors();
                 // 更新平均观测方向和观测距离
@@ -856,10 +860,10 @@ void LocalMapping::CullRedundantKeyFrame()
         for(size_t i=0, iend=vpMapPoints.size(); i<iend; i++){
             MapPoint* pMP = vpMapPoints[i];
             if(pMP){
-                if(!pMP->isBad()){
+                if(!pMP->GetbBad()){
                     nMPs++;
-                    // pMP->Observations() 是观测到该地图点的相机总数目（单目1，双目2）
-                    if(pMP->Observations()>thObs){
+                    // pMP->GetObservations() 是观测到该地图点的相机总数目（单目1，双目2）
+                    if(pMP->GetObservations() > thObs){
                         const int &scaleLevel = pKF->mvKeysUn[i].octave;
                         // Observation存储的是可以看到该地图点的所有关键帧的集合
                         const map<KeyFrame*, size_t> observations = pMP->GetObservationsKFAndMPIdx();
