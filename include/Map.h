@@ -42,7 +42,7 @@ class Map
 {
 public:
     /** @brief 构造函数 */
-    Map();
+    Map(int nMaxObjectID);
 
     /**
      * @brief 向地图中添加关键帧
@@ -91,7 +91,6 @@ public:
      */
     std::vector<MapPoint*> GetAllMapPoints(bool NeedObjectMP = true);
     std::vector<MapPoint*> GetAllObjects();
-    std::vector<MapPoint*> GetMapPointsByObjectID(int ObjectID);
     /**
      * @brief 获取地图中的所有参考地图点
      * 
@@ -145,6 +144,7 @@ protected:
 
     ///当前地图中具有最大ID的关键帧
     long unsigned int mnMaxKeyFrameID;
+    std::vector<int> mvnObjectNumByID;
 
     ///类的成员函数在对类成员变量进行操作的时候,防止冲突的互斥量
     std::mutex mMutexMap;

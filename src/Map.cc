@@ -38,8 +38,9 @@ namespace ORB_SLAM2
 {
 
 //构造函数,地图点中最大关键帧id归0
-Map::Map(): mnMaxKeyFrameID(0)
+Map::Map(int nMaxObjectID): mnMaxKeyFrameID(0)
 {
+    mvnObjectNumByID.resize(nMaxObjectID,0);
 }
 
 /*
@@ -74,13 +75,12 @@ void Map::AddMapPoint(MapPoint *pMP)
 void Map::EraseMapPoint(MapPoint *pMP)
 {
     unique_lock<mutex> lock(mMutexMap);
+    mspMapPoints.erase(pMP);
     //下面是作者加入的注释. 实际上只是从std::set中删除了地图点的指针, 原先地图点
     //占用的内存区域并没有得到释
     //bug: where new where delete, because it may be used soon.
     // TODO: This only eraseKFromDB the pointer.
     // Delete the MapPoint
-    delete pMP;
-    mspMapPoints.erase(pMP);
 }
 
 /**
@@ -90,13 +90,11 @@ void Map::EraseMapPoint(MapPoint *pMP)
 void Map::EraseKeyFrame(KeyFrame *pKF)
 {
     unique_lock<mutex> lock(mMutexMap);
+    //是的,根据值来删除地图点
+    mspKeyFrames.erase(pKF);
     //bug: where new where delete, because it may be used soon.
     // TODO: This only eraseKFromDB the pointer.
     // Delete the MapPoint
-    delete pKF;
-    //是的,根据值来删除地图点
-    mspKeyFrames.erase(pKF);
-
 }
 
 /*
@@ -140,19 +138,6 @@ vector<MapPoint*> Map::GetAllObjects()
         if((*ipMP)->mnObjectID>0){
             tmp.push_back((*ipMP));
         }
-    }
-    return tmp;
-}
-
-vector<MapPoint*> Map::GetMapPointsByObjectID(int ObjectID)
-{
-    unique_lock<mutex> lock(mMutexMap);
-    vector<MapPoint*> tmp;
-    for(set<MapPoint*>::iterator ipMP=mspMapPoints.begin();ipMP!=mspMapPoints.end();ipMP++){
-        if((*ipMP)->mnObjectID != ObjectID){
-            continue;
-        }
-        tmp.push_back((*ipMP));
     }
     return tmp;
 }

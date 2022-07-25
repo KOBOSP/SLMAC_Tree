@@ -20,8 +20,8 @@ Camera.k3: 0
 Image.width: 1920
 Image.height: 1080
 Camera.width: 960
-Camera.height: 540
-Camera.fps: 15
+Camera.height: 544
+Camera.fps: 7
  
 # Color order of the images (0: BGR, 1: RGB. It is ignored if images are grayscale)
 Camera.RGB: 0
@@ -50,11 +50,11 @@ Track.LossMMOrRKFVOThreshold: 10
 Track.GoodLMVOThreshold: 40
 Track.LossLMVOThreshold: 20
 Track.MaxFrameID: 15000
+Track.MaxObjectID: 3000
 LoopClose.CovisibilityConsistencyTh: 3
 LoopClose.SingleMatchKeyPoint: 5
 LoopClose.TotalMatchKeyPoint: 40
 LoopClose.SystemWithoutLoopClose: 0
-LoopClose.MaxObjectID: 10000
 KFDB.radioCommonWord: 0.8
 KFDB.radioAccScore: 0.7
  

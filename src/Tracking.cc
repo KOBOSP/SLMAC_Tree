@@ -144,6 +144,10 @@ Tracking::Tracking(
     cout << "- p1: " << DistCoef.at<float>(2) << endl;
     cout << "- p2: " << DistCoef.at<float>(3) << endl;
     cout << "- mnfpsByCfgFile: " << mnfpsByCfgFile << endl;
+    cout << "- frame_width: " << frame_width << endl;
+    cout << "- frame_height: " << frame_height << endl;
+    cout << "- image_width: " << image_width << endl;
+    cout << "- image_height: " << image_height << endl;
 
     // 1:RGB 0:BGR
     int nRGB = fSettings["Camera.RGB"];
@@ -183,6 +187,8 @@ Tracking::Tracking(
     cout << "- Track.LossMMOrRKFVOThreshold: " << mnLossMMOrRKFVOThreshold << endl;
     cout << "- Track.GoodLMVOThreshold: " << mnGoodLMVOThreshold << endl;
     cout << "- Track.LossLMVOThreshold: " << mnLossLMVOThreshold << endl;
+    cout << "- Track.MaxFrameID: " << MaxFrameID << endl;
+
 
     // tracking过程都会用到mpORBextractorLeft作为特征点提取器
     mpORBextractorLeft = new ORBextractor(
@@ -205,18 +211,17 @@ Tracking::Tracking(
         ColorSet.push_back(cv::Point3f(rand()%255, rand()%255,rand()%255));
     }
     while(cin >> tmpFrameID >> tmpTargetID >> tmpTargetX >> tmpTargetY >> tmpTargetL >> tmpTargetH){
-        mvTarsSet[tmpFrameID].push_back(cv::KeyPoint(
-                cv::Point2f((tmpTargetX+tmpTargetL/2.0)/image_width*frame_width,
-                    (tmpTargetY+tmpTargetH/2.0)/image_height*frame_height),
-             ColorSet[tmpTargetID%ColorSetSize].x,
-             ColorSet[tmpTargetID%ColorSetSize].y,
-             ColorSet[tmpTargetID%ColorSetSize].z,
-             0,
-             tmpTargetID));
+        mvTarsSet[tmpFrameID].push_back(cv::KeyPoint(cv::Point2f((tmpTargetX+tmpTargetL/2.0)/image_width*frame_width,
+                                                                 (tmpTargetY+tmpTargetH/2.0)/image_height*frame_height),
+                                                     ColorSet[tmpTargetID%ColorSetSize].x,
+                                                     ColorSet[tmpTargetID%ColorSetSize].y,
+                                                     ColorSet[tmpTargetID%ColorSetSize].z,
+                                                     0,
+                                                     tmpTargetID));
     }
     fclose(stdin);
     cout << "- Viewer.ColorSetSize: " << ColorSetSize << endl;
-    cout << "- Track.MaxFrameID -real MaxFrameID: " << MaxFrameID <<" "<< tmpFrameID << endl;
+    cout << "- ActualMaxFrameID: " << tmpFrameID << endl;
 }
 
 //设置局部建图器
@@ -468,6 +473,7 @@ void Tracking::Track(){
                 }
             }
         }
+
         // 将最新的关键帧作为当前帧的参考关键帧
         mCurrentFrame.mpReferenceKF = mpReferenceKF;
 
@@ -493,7 +499,7 @@ void Tracking::Track(){
         if(bOK)
             mState = OK;
         else
-            mState = LOST;
+            mState=LOST;
 
         // Step 4：更新显示线程中的图像、特征点、地图点等信息
         mpFrameDrawer->UpdateImgKPMPState(this);

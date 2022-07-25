@@ -74,7 +74,7 @@ public:
      * @param[in] bFixScale     表示sim3中的尺度是否要计算,对于双目和RGBD情况尺度是固定的,s=1,bFixScale=true;而单目下尺度是不确定的,此时bFixScale=false,sim
      * 3中的s需要被计算
      */
-    LoopClosing(Map* pMap, KeyFrameDatabase* pDB, ORBVocabulary* pVoc, const string &strSettingPath, const bool bFixScale);
+    LoopClosing(Map* pMap, KeyFrameDatabase* pDB, ORBVocabulary* pVoc, int nMaxObjectID, const string &strSettingPath, const bool bFixScale);
     /** @brief 设置追踪线程的句柄
      *  @param[in] pTracker 追踪线程的句柄  */
     void SetTracker(Tracking* pTracker);
@@ -115,6 +115,7 @@ public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
 protected:
+    void FuseSameObjectIDInGlobalMap();
 
     /** @brief 查看列表中是否有等待被插入的关键帧
      *  @return true 如果有
@@ -142,7 +143,6 @@ protected:
      */
     void SearchAndFuseMPsInLoopMap(const KeyFrameAndPose &CorrectedPosesMap);
 
-    void FuseRedundantObjectInGlobalMap();
     /**
      * @brief 闭环纠正
      * @detials \n
@@ -196,7 +196,6 @@ protected:
     int mnfpsByCfgFile;
     int mnSingleMatchKeyPoint;
     int mnTotalMatchKeyPoint;
-    int mnMaxObjectID;
 
     // Loop detector variables
     /// 当前关键帧,其实称之为"当前正在处理的关键帧"更加合适
@@ -213,7 +212,6 @@ protected:
     std::vector<MapPoint*> mvpCurrentMatchedPoints;
     /// 闭环关键帧上的所有相连关键帧的地图点
     std::vector<MapPoint*> mvpLoopMapPoints;
-    std::vector<std::vector<MapPoint*>> mvvpSameIDObject;
     // 下面的变量的cv::Mat格式版本
     cv::Mat mScw;
     // 当得到了当前关键帧的闭环关键帧以后,计算出来的从世界坐标系到当前帧的sim3变换
@@ -240,6 +238,7 @@ protected:
 
     /// 已经进行了的全局BA次数(包含中途被打断的)
     bool mnFullBAIdx;
+    int mnMaxObjectID;
 };
 
 } //namespace ORB_SLAM

@@ -61,6 +61,7 @@ MapPoint::MapPoint(const cv::Mat &Pos,  //地图点的世界坐标
     mpMap(pMap)                             //从属地图
 {
     Pos.copyTo(mWorldPos);
+    mvObjectIDPos.push_back(mWorldPos);
     //平均观测方向初始化为0
     mNormalVector = cv::Mat::zeros(3,1,CV_32F);
     // MapPoints can be created from Tracking and Local Mapping. This mutex avoid conflicts with id.
@@ -85,6 +86,7 @@ MapPoint::MapPoint(const cv::Mat &Pos, Map* pMap, Frame* pFrame, const int &idxF
         mpMap(pMap)
 {
     Pos.copyTo(mWorldPos);
+    mvObjectIDPos.push_back(mWorldPos);
     cv::Mat Ow = pFrame->GetCameraCenter();
     mNormalVector = mWorldPos - Ow;// 世界坐标系下相机到3D点的向量 (当前关键帧的观测方向)
     mNormalVector = mNormalVector/cv::norm(mNormalVector);// 单位化
@@ -97,7 +99,7 @@ MapPoint::MapPoint(const cv::Mat &Pos, Map* pMap, Frame* pFrame, const int &idxF
     const int nLevels = pFrame->mnScaleLevels;
 
     // 另见 PredictScale 函数前的注释
-    /* 666,因为在提取特征点的时候, 考虑到了图像的尺度问题,因此在不同图层上提取得到的特征点,对应着特征点距离相机的远近
+    /* 因为在提取特征点的时候, 考虑到了图像的尺度问题,因此在不同图层上提取得到的特征点,对应着特征点距离相机的远近
        不同, 所以在这里生成地图点的时候,也要再对其进行确认
        虽然我们拿不到每个图层之间确定的尺度信息,但是我们有缩放比例这个相对的信息哇
     */

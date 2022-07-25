@@ -47,10 +47,10 @@ namespace ORB_SLAM2
 {
 
 // 构造函数
-LoopClosing::LoopClosing(Map *pMap, KeyFrameDatabase *pDB, ORBVocabulary *pVoc, const string &strSettingPath, const bool bFixScale):
+LoopClosing::LoopClosing(Map *pMap, KeyFrameDatabase *pDB, ORBVocabulary *pVoc, int nMaxObjectID, const string &strSettingPath, const bool bFixScale):
     mbResetRequested(false), mbFinishRequested(false), mbFinished(true), mpMap(pMap),
     mpKeyFrameDB(pDB), mpORBVocabulary(pVoc), mpMatchedKF(NULL), mLastLoopKFid(0), mbRunningGBA(false), mbFinishedGBA(true),
-    mbStopGBA(false), mpThreadGBA(NULL), mbFixScale(bFixScale), mnFullBAIdx(0)
+    mbStopGBA(false), mpThreadGBA(NULL), mbFixScale(bFixScale), mnFullBAIdx(0), mnMaxObjectID(nMaxObjectID)
 {
     // 连续性阈值
     cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);
@@ -68,9 +68,7 @@ LoopClosing::LoopClosing(Map *pMap, KeyFrameDatabase *pDB, ORBVocabulary *pVoc, 
     cout << "- LoopClose.SingleMatchKeyPoint " << mnSingleMatchKeyPoint << endl;
     cout << "- LoopClose.TotalMatchKeyPoint: " << mnTotalMatchKeyPoint << endl;
     cout << "- LoopClose.SystemWithoutLoopClose: " << mbSystemWithoutLoopClose << endl;
-    mnMaxObjectID = fSettings["LoopClose.MaxObjectID"];
-    mvvpSameIDObject.resize(mnMaxObjectID);
-    cout << "- LoopClose.MaxObjectID: " << mnMaxObjectID << endl;
+    cout << "- Track.MaxObjectID: " << nMaxObjectID << endl;
 }
 
 // 设置追踪线程句柄
@@ -96,6 +94,7 @@ void LoopClosing::Run()
             // 在LocalMapping中通过 InsertKeyFrameInQueue 将关键帧插入闭环检测队列mlpLoopKeyFrameQueue
             // Step 1 查看闭环检测队列mlpLoopKeyFrameQueue中有没有关键帧进来
             if (CheckNewKeyFrames()) {
+                FuseSameObjectIDInGlobalMap();
                 // Detect loop candidates and check covisibility consistency
                 if (DetectLoop()) {
                     // Compute similarity transformation [sR|t]
@@ -107,9 +106,10 @@ void LoopClosing::Run()
                 }
             }
         }
-        //FuseRedundantObjectInGlobalMap();
+
         // 查看是否有外部线程请求复位当前线程
         ResetIfRequested();
+
         // 查看外部线程是否有终止当前线程的请求,如果有的话就跳出这个线程的主函数的主循环
         if(CheckFinish())
             break;
@@ -123,29 +123,41 @@ void LoopClosing::Run()
     SetFinish();
 }
 
-void LoopClosing::FuseRedundantObjectInGlobalMap(){
+void LoopClosing::FuseSameObjectIDInGlobalMap(){
+    int nMaxObjectID=-1;
     vector<MapPoint*> ObjectsInGlobalMap = mpMap->GetAllObjects();
+    vector<vector<MapPoint*>> vvpSameIDObject;
+    vvpSameIDObject.resize(mnMaxObjectID);
     for(vector<MapPoint*>::iterator vit=ObjectsInGlobalMap.begin(), vend=ObjectsInGlobalMap.end(); vit != vend; vit++) {
-        MapPoint* pMPInLM = *vit;
-        mvvpSameIDObject[pMPInLM->mnObjectID].push_back(pMPInLM);
+        MapPoint* pMPObj = *vit;
+        if(pMPObj->mvObjectIDPos.size()>1){
+            vvpSameIDObject[pMPObj->mnObjectID].insert(vvpSameIDObject[pMPObj->mnObjectID].begin(),pMPObj);
+        }
+        else{
+            vvpSameIDObject[pMPObj->mnObjectID].push_back(pMPObj);
+        }
+        if(pMPObj->mnObjectID > nMaxObjectID){
+            nMaxObjectID=pMPObj->mnObjectID;
+        }
     }
-    for(int i=0;i<mnMaxObjectID;i++){
-        if(mvvpSameIDObject[i].size()==0){
+    for(int i=0;i<nMaxObjectID;i++){
+        if(vvpSameIDObject[i].size()<2){
             continue;
         }
-        for(vector<MapPoint*>::iterator vit=++mvvpSameIDObject[i].begin(), vend=mvvpSameIDObject[i].end(); vit != vend; vit++){
+        cv::Mat tmpMat=vvpSameIDObject[i][0]->GetWorldPos()*vvpSameIDObject[i][0]->mvObjectIDPos.size();
+        for(vector<MapPoint*>::iterator vit=vvpSameIDObject[i].begin()+1, vend=vvpSameIDObject[i].end(); vit != vend; vit++){
             MapPoint* pMPObj = *vit;
-            mvvpSameIDObject[i][0]->SetWorldPos(mvvpSameIDObject[i][0]->GetWorldPos() + pMPObj->GetWorldPos());
+            tmpMat+=pMPObj->GetWorldPos();
+            vvpSameIDObject[i][0]->mvObjectIDPos.push_back(pMPObj->GetWorldPos());
         }
-        mvvpSameIDObject[i][0]->SetWorldPos(mvvpSameIDObject[i][0]->GetWorldPos()/mvvpSameIDObject[i].size());
-        for(vector<MapPoint*>::iterator vit=++mvvpSameIDObject[i].begin(), vend=mvvpSameIDObject[i].end(); vit != vend; vit++){
+        vvpSameIDObject[i][0]->SetWorldPos(tmpMat/vvpSameIDObject[i][0]->mvObjectIDPos.size());
+        for(vector<MapPoint*>::iterator vit=vvpSameIDObject[i].begin()+1, vend=vvpSameIDObject[i].end(); vit != vend; vit++){
             MapPoint* pMPObj = *vit;
-            pMPObj->Replace(mvvpSameIDObject[i][0]);
+            pMPObj->Replace(vvpSameIDObject[i][0]);
         }
-        mvvpSameIDObject[i].clear();
+        vvpSameIDObject[i].clear();
     }
 }
-
 
 // 将某个关键帧加入到回环检测的过程中,由局部建图线程调用
 void LoopClosing::InsertKeyFrame(KeyFrame *pKF)
@@ -589,6 +601,7 @@ bool LoopClosing::ComputeSim3()
  */
 void LoopClosing::CorrectLoop()
 {
+
     cout << "Loop detected!" << endl;
     // Step 0：结束局部地图线程、全局BA，为闭环矫正做准备
     // Step 1：根据共视关系更新当前帧与其它关键帧之间的连接

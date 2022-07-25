@@ -144,7 +144,7 @@ void Optimizer::OptimizeAllKFsAndMPs(const vector<KeyFrame *> &vpKFs, const vect
     for(size_t i=0; i<vpMP.size(); i++){
         MapPoint* pMP = vpMP[i];
         // 跳过无效地图点
-        if(pMP->isBad()){
+        if(pMP->isBad() || pMP->mnObjectID>0){
             continue;
         }
 
@@ -258,7 +258,7 @@ void Optimizer::OptimizeAllKFsAndMPs(const vector<KeyFrame *> &vpKFs, const vect
             continue;
         MapPoint* pMP = vpMP[i];
         // 跳过无效地图点
-        if(pMP->isBad()){
+        if(pMP->isBad()|| pMP->mnObjectID>0){
             continue;
         }
         // 获取优化之后的地图点的位置
@@ -386,8 +386,10 @@ int Optimizer::OptimizeFramePose(Frame *pFrame)
             e->Xw[2] = Xw.at<float>(2);
 
             optimizer.addEdge(e);
+
             vpEdgesMono.push_back(e);
             vnIndexEdgeMono.push_back(i);
+
         }
 
     }
@@ -413,9 +415,8 @@ int Optimizer::OptimizeFramePose(Frame *pFrame)
         // 其实就是初始化优化器,这里的参数0就算是不填写,默认也是0,也就是只对level为0的边进行优化
         optimizer.initializeOptimization(0);
         // 开始优化，优化10次
-        cout<<it<<endl;
         optimizer.optimize(its[it]);
-        cout<<it<<endl;
+
         nBad=0;
         // 优化结束,开始遍历参与优化的每一条误差边(单目)
         for(size_t i=0, iend=vpEdgesMono.size(); i<iend; i++){
@@ -703,7 +704,7 @@ void Optimizer::OptimizeLocalMapPoint(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
             g2o::EdgeSE3ProjectXYZ* e = vpEdgesMono[i];
             MapPoint* pMP = vpMapPointEdgeMono[i];
             // 跳过无效地图点
-            if(pMP->isBad()){
+            if(pMP->isBad() || pMP->mnObjectID>0){
                 continue;
             }
             // 基于卡方检验计算出的阈值（假设测量有一个像素的偏差）
@@ -722,7 +723,7 @@ void Optimizer::OptimizeLocalMapPoint(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
             g2o::EdgeStereoSE3ProjectXYZ* e = vpEdgesStereo[i];
             MapPoint* pMP = vpMapPointEdgeStereo[i];
             // 跳过无效地图点
-            if(pMP->isBad()){
+            if(pMP->isBad() || pMP->mnObjectID>0){
                 continue;
             }
             // 自由度为3的卡方分布，显著性水平为0.05，对应的临界阈值7.815
@@ -747,7 +748,7 @@ void Optimizer::OptimizeLocalMapPoint(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
         g2o::EdgeSE3ProjectXYZ* e = vpEdgesMono[i];
         MapPoint* pMP = vpMapPointEdgeMono[i];
         // 跳过无效地图点
-        if(pMP->isBad()){
+        if(pMP->isBad() || pMP->mnObjectID>0){
             continue;
         }
         // 基于卡方检验计算出的阈值（假设测量有一个像素的偏差）
@@ -765,7 +766,7 @@ void Optimizer::OptimizeLocalMapPoint(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
         g2o::EdgeStereoSE3ProjectXYZ* e = vpEdgesStereo[i];
         MapPoint* pMP = vpMapPointEdgeStereo[i];
         // 跳过无效地图点
-        if(pMP->isBad()){
+        if(pMP->isBad() || pMP->mnObjectID>0){
             continue;
         }
 
@@ -848,6 +849,9 @@ void Optimizer::OptimizeLocalObject(KeyFrame *pKF, bool* pbStopFlag, Map* pMap)
             for(vector<MapPoint*>::iterator vit=vpObjs.begin(), vend=vpObjs.end(); vit != vend; vit++){
                 MapPoint* pMP = *vit;
                 if(pMP){
+                    if(pMP->mnObjectID>0){
+                        continue;
+                    }
                     if(!pMP->isBad())   //保证地图点有效
                         // 把参与局部BA的每一个地图点的 mnBALocalForKF设置为当前关键帧的mnId
                         // mnBALocalForKF 是为了防止重复添加
@@ -1026,7 +1030,7 @@ void Optimizer::OptimizeLocalObject(KeyFrame *pKF, bool* pbStopFlag, Map* pMap)
                 vpMapPointEdgeMono.push_back(pMP);
             } // 遍历所有观测到当前地图点的关键帧
         } // 遍历所有的局部地图中的地图点
-//        printf("vpEdgesMono.size(): %u",vpEdgesMono.size());
+        printf("vpEdgesMono.size(): %u",vpEdgesMono.size());
         if(vpEdgesMono.size()<3){
             return;
         }
@@ -1053,7 +1057,7 @@ void Optimizer::OptimizeLocalObject(KeyFrame *pKF, bool* pbStopFlag, Map* pMap)
             g2o::EdgeSE3ProjectXYZ* e = vpEdgesMono[i];
             MapPoint* pMP = vpMapPointEdgeMono[i];
             // 跳过无效地图点
-            if(pMP->isBad()){
+            if(pMP->isBad()|| pMP->mnObjectID>0){
                 continue;
             }
             // 基于卡方检验计算出的阈值（假设测量有一个像素的偏差）
@@ -1071,7 +1075,7 @@ void Optimizer::OptimizeLocalObject(KeyFrame *pKF, bool* pbStopFlag, Map* pMap)
             g2o::EdgeStereoSE3ProjectXYZ* e = vpEdgesStereo[i];
             MapPoint* pMP = vpMapPointEdgeStereo[i];
             // 跳过无效地图点
-            if(pMP->isBad()){
+            if(pMP->isBad()|| pMP->mnObjectID>0){
                 continue;
             }
 
@@ -1407,7 +1411,7 @@ void Optimizer::OptimizeEssentialGraph(Map* pMap, KeyFrame* pLoopKF, KeyFrame* p
     for(size_t i=0, iend=vpMPs.size(); i<iend; i++){
         MapPoint* pMP = vpMPs[i];
         // 跳过无效地图点
-        if(pMP->isBad()){
+        if(pMP->isBad()|| pMP->mnObjectID>0){
             continue;
         }
 
@@ -1538,6 +1542,9 @@ int Optimizer::OptimizeSim3(KeyFrame *pKF1, KeyFrame *pKF2, vector<MapPoint *> &
         const int i2 = pMP2->GetIndexInKeyFrame(pKF2);
 
         if(pMP1 && pMP2){
+            if( pMP1->mnObjectID>0 || pMP2->mnObjectID>0){
+                continue;
+            }
             if(!pMP1->isBad() && !pMP2->isBad() && i2>=0){
                 // 如果这对匹配点都靠谱，并且对应的2D特征点也都存在的话，添加PointXYZ顶点
                 g2o::VertexSBAPointXYZ* vPoint1 = new g2o::VertexSBAPointXYZ();

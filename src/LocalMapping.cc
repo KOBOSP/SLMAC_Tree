@@ -472,7 +472,6 @@ void LocalMapping::CreateNewMapPointsByNerborKFs()
             // Triangulation is succesfull
             // Step 6.8：三角化生成3D点成功，构造成MapPoint
             MapPoint* pMP = new MapPoint(x3D,mpCurrentKeyFrame,mpMap,kp1.class_id);
-            cout<<"new mappoint: pMPinKF->mnObjectID: "<<pMP->mnObjectID << endl;
 
             // Step 6.9：为该MapPoint添加属性：
             // a.观测到该MapPoint的关键帧
@@ -585,8 +584,6 @@ void LocalMapping::FuseMapPointsInNeighbors()
     // Step 4.2：进行地图点投影融合,和正向融合操作是完全相同的
     // 不同的是正向操作是"每个关键帧和当前关键帧的地图点进行融合",而这里的是"当前关键帧和所有邻接关键帧的地图点进行融合"
     matcher.FuseRedundantMapPointInLocalMap(mpCurrentKeyFrame, vpFuseCandidates);
-
-
 
     // UpdateImgKPMPState points
     // Step 5：更新当前帧地图点的描述子、深度、平均观测方向等属性

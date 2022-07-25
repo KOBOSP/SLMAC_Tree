@@ -262,6 +262,7 @@ public:
     long unsigned int mnCorrectedReference;
     // 全局BA优化后(如果当前地图点参加了的话),这里记录优化后的位姿
     cv::Mat mPosGBA;
+    std::vector<cv::Mat> mvObjectIDPos;
     // 如果当前点的位姿参与到了全局BA优化,那么这个变量记录了那个引起全局BA的"当前关键帧"的id
     long unsigned int mnBAGlobalForKF;
 

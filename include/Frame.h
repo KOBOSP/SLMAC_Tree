@@ -98,7 +98,7 @@ public:
      * @param[in] bf                                //baseline*f
      * @param[in] thDepth                           //区分远近点的深度阈值
      */
-    Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &thDepth, std::vector<cv::KeyPoint> vTars);
+    Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &thDepth, std::vector<cv::KeyPoint> &vTars);
 
 
     // Compute Bag of Words representation.

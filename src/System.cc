@@ -68,9 +68,9 @@ System::System(const string &strVocFile,					//词典文件路径
 
     //Create KeyFrame Database
     mpKeyFrameDatabase = new KeyFrameDatabase(*mpVocabulary,strSettingsFile);
-
+    int nMaxObjectID=fsSettings["Track.MaxObjectID"];
     //Create the Map
-    mpMap = new Map();
+    mpMap = new Map(nMaxObjectID);
 
     //Create Drawers. These are used by the Viewer
     //这里的帧绘制器和地图绘制器将会被可视化的Viewer所使用
@@ -102,6 +102,7 @@ System::System(const string &strVocFile,					//词典文件路径
     mpLoopCloser = new LoopClosing(mpMap, 						//地图
     							   mpKeyFrameDatabase, 			//关键帧数据库
     							   mpVocabulary, 				//ORB字典
+                                   nMaxObjectID,
                                    strSettingsFile,
     							   mSensor!=MONOCULAR);			//当前的传感器是否是单目
     //创建回环检测线程
