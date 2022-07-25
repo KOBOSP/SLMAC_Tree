@@ -76,7 +76,6 @@ public:
      * @param[in] vpMPs 地图点们
      */
     void SetReferenceMapPoints(const std::vector<MapPoint*> &vpMPs);
-    void AddReferenceMapPoints(const vector<MapPoint *> &vpMPs);
     void SetReferenceObjects(const vector<MapPoint *> &vpMPs);
 
 

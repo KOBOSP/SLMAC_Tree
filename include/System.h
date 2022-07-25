@@ -87,12 +87,7 @@ public:
                            vector<cv::KeyPoint> vTarsInFrame,
                            cv::Mat TgpsFrame);    //时间戳
 
-    // This stops local mapping thread (map building) and performs only camera tracking.
-    //使能定位模式，此时仅有运动追踪部分在工作，局部建图功能则不工作
-    void ActivateLocalizationMode();
-    // This resumes local mapping thread and performs SLAM again.
-    //反之同上
-    void DeactivateLocalizationMode();
+
 
 
     // Reset the system (clearAllKFinDB map)
@@ -106,13 +101,6 @@ public:
     void Shutdown();
     void SaveKeyFrameAndMapPointInGps(const string &filename, bool bSaveKeyFramesGps, bool bSaveObjectsGps);
 
-
-    // Information from most recent processed frame
-    // You can call this right after TrackMonocular (or stereo or RGBD)
-    //获取最近的运动追踪状态、地图点追踪状态、特征点追踪状态（）
-    int GetTrackingState();
-    std::vector<MapPoint*> GetTrackedMapPoints();
-    std::vector<cv::KeyPoint> GetTrackedKeyPointsUn();
 
 private:
 

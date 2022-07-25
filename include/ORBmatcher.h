@@ -96,19 +96,6 @@ public:
      */
     int SearchFMatchPointByProjectKeyFrame(Frame &CurrentFrame, KeyFrame* pKF, const std::set<MapPoint*> &sAlreadyFound, const float th, const int ORBdist);
 
-    // Project MapPoints using a Similarity Transformation and search matches.
-    // Used in loop detection (Loop Closing)
-    /**
-     * @brief 根据Sim3变换，将每个vpPoints投影到pKF上，并根据尺度确定一个搜索区域，
-     * @detials 根据该MapPoint的描述子与该区域内的特征点进行匹配，如果匹配误差小于TH_LOW即匹配成功，更新vpMatched
-     * @param[in] pKF               要投影到的关键帧
-     * @param[in] Scw               相似变换
-     * @param[in] vpPoints          空间点
-     * @param[in] vpMatched         已经得到的空间点和关键帧上点的匹配关系
-     * @param[in] th                搜索窗口的阈值
-     * @return int                  匹配的特征点数目
-     */
-    int SearchKFNewMatchPointBySim3andLocalMP(KeyFrame* pKF, cv::Mat Scw, const std::vector<MapPoint*> &vpPoints, std::vector<MapPoint*> &vpMatched, int th, bool bNeedObject);
 
     // Search matches between MapPoints in a KeyFrame and ORB in a Frame.
     // Brute force constrained to ORB that belong to the same vocabulary node (at a certain level)
@@ -127,7 +114,6 @@ public:
     * @return                   成功匹配的数量
     */
     int SearchFMatchPointByKFBoW(KeyFrame *pKF, Frame &F, std::vector<MapPoint*> &vpMapPointMatches);
-    int SearchKFMatchPointByKFBoW(KeyFrame *pKF1, KeyFrame* pKF2, std::vector<MapPoint*> &vpMatches12, bool bNeedObject);
 
     // Matching for the Map Initialization (only used in the monocular case)
     /**
@@ -163,22 +149,6 @@ public:
     int SearchNewKFMatchPointByKFBoWAndF12(KeyFrame *pKF1, KeyFrame* pKF2, cv::Mat F12,
                                            std::vector<pair<size_t, size_t> > &vMatchedPairs);
 
-    // Search matches between MapPoints seen in KF1 and KF2 transforming by a Sim3 [s12*R12|t12]
-    // NOTE In the stereo and RGB-D case, s12=1
-    /**
-     * @brief 通过Sim3变换，确定pKF1的特征点在pKF2中的大致区域，同理，确定pKF2的特征点在pKF1中的大致区域
-     * @detials 在该区域内通过描述子进行匹配捕获pKF1和pKF2之前漏匹配的特征点，更新vpMatches12（之前使用SearchByBoW进行特征点匹配时会有漏匹配）
-     * @param[in] pKF1              关键帧1
-     * @param[in] pKF2              关键帧2
-     * @param[in] vpMatches12       两帧特征点的匹配关系
-     * @param[in] s12               缩放因子,SIM3中的吧
-     * @param[in] R12 
-     * @param[in] t12 
-     * @param[in] th                搜索窗口阈值
-     * @return int                  匹配到的点的个数
-     */
-    int SearchNewKFMatchPointByKFMutualSim3(KeyFrame* pKF1, KeyFrame* pKF2, std::vector<MapPoint *> &vpMatches12, const float &s12, const cv::Mat &R12, const cv::Mat &t12, const float th, bool bNeedObject);
-
     // Project MapPoints into KeyFrame and search for duplicated MapPoints.
     /**
      * @brief 将地图点投影到关键帧中进行匹配和融合;并且地图点的替换可以在这个函数中进行
@@ -189,19 +159,6 @@ public:
      */
     int FuseRedundantMapPointAndObjectByProjectInLocalMap(KeyFrame* pKF, const vector<MapPoint *> &vpMapPoints, const float th= 3.0);
     int FuseRedundantDifferIdObjectInLocalMap(KeyFrame* pKF, const vector<MapPoint *> &vpMapPoints, vector<int> &vnSameObjectIdMap, set<int> &sLinkedObjectID, const int nMaxObjectID, bool notRecursion = false, const float th = 1.5);
-
-    // Project MapPoints into KeyFrame using a given Sim3 and search for duplicated MapPoints.
-    /**
-     * @brief 将地图点投影到关键帧中进行,但是由于种种原因,地图点还不能够在这个函数中完成替换操作
-     * 
-     * @param[in] pKF               关键帧
-     * @param[in] Scw               仿射变换
-     * @param[in] vpPoints          给出的地图点
-     * @param[in] th                搜索窗口阈值
-     * @param[out] vpReplacePoint   需要替换掉的地图点,键值对
-     * @return int                  融合的地图点个数
-     */
-    int SearchAndFuseMPsInLoopClose(KeyFrame* pKF, cv::Mat Scw, const std::vector<MapPoint*> &vpPoints, float th, vector<MapPoint *> &vpReplacePoint);
 
 public:
 

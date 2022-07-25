@@ -41,7 +41,7 @@ namespace ORB_SLAM2
 
 // 构造函数
 LocalMapping::LocalMapping(Map *pMap, const float bMonocular, float fCullKFRedundantMPRate):
-    mbMonocular(bMonocular), mbResetRequested(false), mbFinishRequested(false), mbFinished(true), mpMap(pMap),
+    mbResetRequested(false), mbFinishRequested(false), mbFinished(true), mpMap(pMap),
     mbAbortBA(false), mbStopped(false), mbStopRequested(false), mbNotStop(false), mbAcceptKeyFrames(true), mfCullKFRedundantMPRate(fCullKFRedundantMPRate)
 {
     /*
@@ -60,12 +60,6 @@ LocalMapping::LocalMapping(Map *pMap, const float bMonocular, float fCullKFRedun
 void LocalMapping::SetLoopCloser(LoopClosing* pLoopCloser)
 {
     mpLoopCloser = pLoopCloser;
-}
-
-// 设置追踪线程句柄
-void LocalMapping::SetTracker(Tracking *pTracker)
-{
-    mpTracker=pTracker;
 }
 
 // 线程主函数
@@ -107,7 +101,6 @@ void LocalMapping::Run()
                 if(mpMap->GetKeyFramesNumInMap() > 3){
                     // 注意这里的第二个参数是按地址传递的,当这里的 mbAbortBA 状态发生变化时，能够及时执行/停止BA
                     Optimizer::OptimizeLocalMapPoint(mpCurrentKeyFrame, &mbAbortBA, mpMap);
-                    //Optimizer::OptimizeLocalObject(mpCurrentKeyFrame, &mbAbortBA, mpMap);
                 }
                 // Check redundant local Keyframes
                 // Step 7 检测并剔除当前帧相邻的关键帧中冗余的关键帧
@@ -727,11 +720,7 @@ bool LocalMapping::SetNotStop(bool flag)
     return true;
 }
 
-// 终止BA
-void LocalMapping::InterruptBA()
-{
-    mbAbortBA = true;
-}
+
 
 /**
  * @brief 检测当前关键帧在共视图中的关键帧，根据地图点在共视图中的冗余程度剔除该共视关键帧

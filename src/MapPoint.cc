@@ -48,11 +48,8 @@ MapPoint::MapPoint(const cv::Mat &Pos,  //地图点的世界坐标
         mnLastFrameSeen(0),                     //是否决定判断在某个帧视野中的变量
     mnBALocalForKF(0),                      //
     mnFuseCandidateInLM(0),                //
-    mnFuseCandidateInLC(0),                //
-    mnLoopPointForKF(0),                    //
     mnCorrectedByKF(0),                     //
     mnCorrectedReference(0),                //
-    mnBAGlobalForKF(0),                     //
     mpRefKF(pRefKF),                        //
     mnVisible(1),                           //在帧中的可视次数
     mnFound(1),                             //被找到的次数 和上面的相比要求能够匹配上

@@ -225,17 +225,7 @@ public:
 
     float mfObjectRadius;
 
-    // Variables used by the tracking
-    float mTrackProjX;             ///< 当前地图点投影到某帧上后的坐标
-    float mTrackProjY;             ///< 当前地图点投影到某帧上后的坐标
-    int mnTrackScaleLevel;         ///< 所处的尺度, 由其他的类进行操作 //?
-    float mTrackViewCos;           ///< 被追踪到时,那帧相机看到当前地图点的视角
-    // TrackWithLocalMap - SearchKFNewMatchPointBySim3andLocalMP 中决定是否对该点进行投影的变量
-    // NOTICE mbTrackInView==false的点有几种：
-    // a 已经和当前帧经过匹配（TrackWithReferenceKeyFrame，TrackWithMotionModel）但在优化过程中认为是外点
-    // b 已经和当前帧经过匹配且为内点，这类点也不需要再进行投影   //? 为什么已经是内点了之后就不需要再进行投影了呢? 
-    // c 不在当前相机视野中的点（即未通过isInFrustum判断）     //? 
-    bool mbTrackInView;
+
     // TrackWithLocalMap - RefreshLocalMapPoints 中防止将MapPoints重复添加至mvpLocalMapPoints的标记
     long unsigned int mnFrameIdForLocalMp;
     long unsigned int mnFrameIdForGpsOrMotion;
@@ -252,20 +242,14 @@ public:
     // local mapping中记录地图点对应当前局部BA的关键帧的mnId。mnBALocalForKF 在map point.h里面也有同名的变量。
     long unsigned int mnBALocalForKF;          
     long unsigned int mnFuseCandidateInLM;     ///< 在局部建图线程中使用,表示被用来进行地图点融合的关键帧(存储的是这个关键帧的id)
-    long unsigned int mnFuseCandidateInLC;
 
     // Variables used by loop closing -- 一般都是为了避免重复操作
-    /// 标记当前地图点是作为哪个"当前关键帧"的回环地图点(即回环关键帧上的地图点),在回环检测线程中被调用
-    long unsigned int mnLoopPointForKF;
     // 如果这个地图点对应的关键帧参与到了回环检测的过程中,那么在回环检测过程中已经使用了这个关键帧修正只有的位姿来修正了这个地图点,那么这个标志位置位
     long unsigned int mnCorrectedByKF;
     long unsigned int mnCorrectedReference;
     // 全局BA优化后(如果当前地图点参加了的话),这里记录优化后的位姿
     cv::Mat mPosGBA;
     int mObjectsReplaceWeight;//save the MP's all possible position
-
-    // 如果当前点的位姿参与到了全局BA优化,那么这个变量记录了那个引起全局BA的"当前关键帧"的id
-    long unsigned int mnBAGlobalForKF;
 
     ///全局BA中对当前点进行操作的时候使用的互斥量
     static std::mutex mGlobalMutex;

@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
     int nFrameNum=fSettings["Image.FrameNum"];
     int bSaveKeyFramesGps = fSettings["Map.SaveKeyFrameGps"];
     int bSaveObjectsGps = fSettings["Map.bSaveObjectsGps"];
-    auto TimeSystemInit = chrono::system_clock::now();
+    auto TimeSystemInit = chrono::steady_clock::now();
     cv::Mat TgpsFrame, TgpsFirst;
     TgpsFirst = cv::Mat(3, 1, CV_32F);
     TgpsFrame = cv::Mat(3, 1, CV_32F);
@@ -84,11 +84,15 @@ int main(int argc, char **argv) {
 
         FrameOrigin = cv::imread((sDetectImageLoLaAtPath + "images/" + to_string(nFrameID) + ".jpg").c_str());
         cv::resize(FrameOrigin, FrameResized, cv::Size(frame_width, frame_height));
-        auto TimeStart = chrono::system_clock::now();
-        orb_slam2.TrackMonocular(FrameResized, chrono::duration_cast<chrono::milliseconds>(TimeStart- TimeSystemInit).count() / 1000.0, nFrameID++, vTarsInFrame, TgpsFrame);
+        auto TimeStart = chrono::steady_clock::now();
+        orb_slam2.TrackMonocular(FrameResized, chrono::duration_cast<chrono::milliseconds>(TimeStart - TimeSystemInit).count() / 1000.0, nFrameID++, vTarsInFrame, TgpsFrame);
         vTarsInFrame.clear();
     }
     fclose(fprgps);
+
+//    auto TimeSystemEnd = std::chrono::steady_clock::now();
+//    std::chrono::duration<double> SysSpent = TimeSystemEnd-TimeSystemInit;
+//    std::cout <<"System end in "<< SysSpent.count() << " seconds \n";
     cv::waitKey(0);
     orb_slam2.Shutdown();
     return 0;

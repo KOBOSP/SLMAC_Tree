@@ -76,7 +76,6 @@ Tracking::Tracking(
     const int sensor):                  //传感器类型
         mState(NO_IMAGES_YET),                              //当前系统还没有准备好
         mSensor(sensor),
-        mbOnlyTracking(false),                              //处于SLAM模式
         mbBadVO(false),                                        //当处于纯跟踪模式的时候，这个变量表示了当前跟踪状态的好坏
         mpORBVocabulary(pVoc),
         mpKeyFrameDB(pKFDB),
@@ -174,6 +173,7 @@ Tracking::Tracking(
     mnLossMMOrRKFVOThreshold = fSettings["Track.LossMMOrRKFVOThreshold"];
     mnGoodLMVOThreshold = fSettings["Track.GoodLMVOThreshold"];
     mnLossLMVOThreshold = fSettings["Track.LossLMVOThreshold"];
+    mnMotionProjectRadius = fSettings["Track.MotionProjectRadius"];
     cout << endl  << "ORB Extractor Parameters: " << endl;
     cout << "- Number of Features: " << nFeatures << endl;
     cout << "- Scale Levels: " << nLevels << endl;
@@ -260,6 +260,7 @@ bool Tracking::CreatORBFrameOrOpticalTrack(const cv::Mat &Img, const double &tim
                 mThDepth,
                 vTarsInFrame,
                 TgpsFrame);
+
     }
     else{// not the initial stage
         mCurrentFrame = Frame(
@@ -814,7 +815,6 @@ bool Tracking::TrackWithReferenceKeyFrame()
                 MapPoint* pMP = mCurrentFrame.mvpMapPoints[i];
                 mCurrentFrame.mvpMapPoints[i]=static_cast<MapPoint*>(NULL);
                 mCurrentFrame.mvbOutlier[i]=false;
-                pMP->mbTrackInView = false;
                 pMP->mnLastFrameSeen = mCurrentFrame.mnId;
                 nmatches--;
             }
@@ -850,7 +850,7 @@ bool Tracking::TrackWithGpsTranslation(vector<KeyFrame*> &vKFNearest){
     // 清空当前帧的地图点
     fill(mCurrentFrame.mvpMapPoints.begin(), mCurrentFrame.mvpMapPoints.end(), static_cast<MapPoint *>(NULL));
     // 设置特征匹配过程中的搜索半径
-    int th = 30;
+    int th = mnMotionProjectRadius*2;
 
     vector<MapPoint*> vpMapPoints;
     vpMapPoints.reserve(400);
@@ -911,7 +911,6 @@ bool Tracking::TrackWithGpsTranslation(vector<KeyFrame*> &vKFNearest){
                 MapPoint* pMP = mCurrentFrame.mvpMapPoints[i];
                 mCurrentFrame.mvpMapPoints[i]=static_cast<MapPoint*>(NULL);
                 mCurrentFrame.mvbOutlier[i]=false;
-                pMP->mbTrackInView = false;
                 pMP->mnLastFrameSeen = mCurrentFrame.mnId;
                 nmatches--;
             }
@@ -955,7 +954,7 @@ bool Tracking::TrackWithMotionModel()
     fill(mCurrentFrame.mvpMapPoints.begin(), mCurrentFrame.mvpMapPoints.end(), static_cast<MapPoint *>(NULL));
     // Project points seen in previous frame
     // 设置特征匹配过程中的搜索半径
-    int th = 30;
+    int th = mnMotionProjectRadius;
 
 
     vector<MapPoint*> vpMapPoints;
@@ -977,8 +976,15 @@ bool Tracking::TrackWithMotionModel()
             pMP->mnFrameIdForGpsOrMotion = mCurrentFrame.mnId;
         }
     }
+//    auto ExactStart = std::chrono::steady_clock::now();
+
     // Step 3：用上一帧地图点进行投影匹配，如果匹配点不够，则扩大搜索半径再来一次
     int nmatches = matcher.SearchFMatchPointByProjectMapPoint(mCurrentFrame, vpMapPoints, th, false);
+
+//    auto ExactEnd = std::chrono::steady_clock::now();
+//    std::chrono::duration<double> spent = ExactEnd - ExactStart;
+//    std::cout <<mCurrentFrame.mvKeys.size() <<"," << vpMapPoints.size() << ","  <<nmatches <<","<<spent.count() << " sec \n";
+
     if (nmatches < mnGoodMMOrRKFVOThreshold) {
         fill(mCurrentFrame.mvpMapPoints.begin(), mCurrentFrame.mvpMapPoints.end(), static_cast<MapPoint *>(NULL));
         nmatches = matcher.SearchFMatchPointByProjectMapPoint(mCurrentFrame, vpMapPoints, 2*th, false);
@@ -1001,7 +1007,6 @@ bool Tracking::TrackWithMotionModel()
                 MapPoint* pMP = mCurrentFrame.mvpMapPoints[i];
                 mCurrentFrame.mvpMapPoints[i]=static_cast<MapPoint*>(NULL);
                 mCurrentFrame.mvbOutlier[i]=false;
-                pMP->mbTrackInView = false;
                 pMP->mnLastFrameSeen = mCurrentFrame.mnId;
                 nmatches--;
             }
@@ -1218,8 +1223,6 @@ void Tracking::SearchNewMatchesByLocalMapPoints(){
                 pMP->IncreaseVisible();
                 // 标记该点被当前帧观测到
                 pMP->mnLastFrameSeen = mCurrentFrame.mnId;
-                // 标记该点在后面搜索匹配时不被投影，因为已经有匹配了
-                pMP->mbTrackInView = false;
             }
         }
     }
@@ -1679,12 +1682,6 @@ void Tracking::Reset()
 
     if(mpViewer)
         mpViewer->Release();
-}
-
-
-void Tracking::InformOnlyTracking(const bool &flag)
-{
-    mbOnlyTracking = flag;
 }
 
 } //namespace ORB_SLAM

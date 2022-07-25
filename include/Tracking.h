@@ -157,7 +157,6 @@ public:
 
     // 新建关键帧和重定位中用来判断最小最大时间间隔，和帧率有关
     int mnfpsByCfgFile;
-    double mTcwDivLLARadio;
 
     // Initialization Variables (Monocular)
     // 初始化时前两帧相关变量
@@ -180,10 +179,6 @@ public:
     list<double> mlFrameTimes;
     ///是否跟丢的标志
     list<bool> mlbLost;
-
-    // True if local mapping is deactivated and we are performing only localization
-    ///标记当前系统是处于SLAM状态还是纯定位状态
-    bool mbOnlyTracking;
 
     /** 
      * @brief 整个系统进行复位操作
@@ -296,6 +291,7 @@ protected:
     int mnLossMMOrRKFVOThreshold;
     int mnGoodLMVOThreshold;
     int mnLossLMVOThreshold;
+    int mnMotionProjectRadius;
 
     //Other Thread Pointers
     ///局部建图器句柄

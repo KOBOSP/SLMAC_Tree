@@ -129,11 +129,9 @@ System::System(const string &strVocFile,					//词典文件路径
     mpTracker->SetLocalMapper(mpLocalMapper);
     mpTracker->SetLoopClosing(mpLoopCloser);
 
-    mpLocalMapper->SetTracker(mpTracker);
     mpLocalMapper->SetLoopCloser(mpLoopCloser);
 
     mpLoopCloser->SetTracker(mpTracker);
-    mpLoopCloser->SetLocalMapper(mpLocalMapper);
 }
 
 //同理，输入为单目图像时的追踪器接口
@@ -156,13 +154,11 @@ cv::Mat System::TrackMonocular(const cv::Mat &im, const double &timestamp, long 
             }
             // 局部地图关闭以后，只进行追踪的线程，只计算相机的位姿，没有对局部地图进行更新
             // 设置mbOnlyTracking为真
-            mpTracker->InformOnlyTracking(true);
             // 关闭线程可以使得别的线程得到更多的资源
             mbActivateLocalizationMode = false;
         }
         // 如果mbDeactivateLocalizationMode是true，局部地图线程就被释放, 关键帧从局部地图中删除.
         if(mbDeactivateLocalizationMode){
-            mpTracker->InformOnlyTracking(false);
             mpLocalMapper->ReleaseNewKFinList();
             mbDeactivateLocalizationMode = false;
         }
@@ -190,23 +186,6 @@ cv::Mat System::TrackMonocular(const cv::Mat &im, const double &timestamp, long 
     }
     return Tcw;
 }
-
-//激活定位模式
-void System::ActivateLocalizationMode()
-{
-	//上锁
-    unique_lock<mutex> lock(mMutexMode);
-    //设置标志
-    mbActivateLocalizationMode = true;
-}
-
-//取消定位模式
-void System::DeactivateLocalizationMode()
-{
-    unique_lock<mutex> lock(mMutexMode);
-    mbDeactivateLocalizationMode = true;
-}
-
 
 
 //准备执行复位
@@ -242,18 +221,17 @@ void System::Shutdown()
 
     if(mpViewer)
     	//如果使用了可视化的窗口查看器执行这个
-    	// TODO 但是不明白这个是做什么的。如果我注释掉了呢？
         pangolin::BindToContext("ORB-SLAM2: Map Viewer");
 }
 
 //按照TUM格式保存相机运行轨迹并保存到指定的文件中
 void System::SaveKeyFrameAndMapPointInGps(const string &filename, bool bSaveKeyFramesGps, bool bSaveObjectsGps)
 {
+    cout<<mpMap->GetMapPointsNumInMap()<<" mappoint num"<<endl;
     cout << endl << "Saving KeyFrame And MapPoint In Gps to " << filename << " ..." << endl;
     ofstream f;
     f.open(filename.c_str());
     f << fixed;
-
     if(bSaveKeyFramesGps){
         vector<KeyFrame*> vpKFs = mpMap->GetAllKeyFrames();
         sort(vpKFs.begin(),vpKFs.end(),KeyFrame::lId);
@@ -289,29 +267,6 @@ void System::SaveKeyFrameAndMapPointInGps(const string &filename, bool bSaveKeyF
     }
     f.close();
     cout << "File saved!" << endl;
-}
-
-
-
-//获取追踪器状态
-int System::GetTrackingState()
-{
-    unique_lock<mutex> lock(mMutexState);
-    return mTrackingState;
-}
-
-//获取追踪到的地图点（其实实际上得到的是一个指针）
-vector<MapPoint*> System::GetTrackedMapPoints()
-{
-    unique_lock<mutex> lock(mMutexState);
-    return mTrackedMapPoints;
-}
-
-//获取追踪到的关键帧的点
-vector<cv::KeyPoint> System::GetTrackedKeyPointsUn()
-{
-    unique_lock<mutex> lock(mMutexState);
-    return mTrackedKeyPointsUn;
 }
 
 } //namespace ORB_SLAM

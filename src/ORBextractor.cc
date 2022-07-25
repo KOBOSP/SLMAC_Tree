@@ -62,6 +62,7 @@
 #include <iterator>
 #include <queue>
 
+# include <chrono>
 #include "ORBextractor.h"
 #include <iostream>
 
@@ -852,6 +853,7 @@ void ORBextractor::ComputeKeyPointsOctTree(vector<vector<KeyPoint> >& allKeypoin
 						 true);			//使能非极大值抑制
                 }
 
+
                 //当图像cell中检测到FAST角点的时候执行下面的语句
                 if(!vKeysCell.empty()){
 					//遍历其中的所有FAST角点
@@ -868,6 +870,8 @@ void ORBextractor::ComputeKeyPointsOctTree(vector<vector<KeyPoint> >& allKeypoin
             }//开始遍历图像cell的列
         }//开始遍历图像cell的行
 
+
+
         //声明一个对当前图层的特征点的容器的引用
         vector<KeyPoint> & keypoints = allKeypoints[level];
 		//并且调整其大小为欲提取出来的特征点个数（当然这里也是扩大了的，因为不可能所有的特征点都是在这一个图层中提取出来的）
@@ -881,6 +885,8 @@ void ORBextractor::ComputeKeyPointsOctTree(vector<vector<KeyPoint> >& allKeypoin
 									  minBorderX, maxBorderX,		//当前图层图像的边界，而这里的坐标却都是在“边缘扩充图像”下的
                                       minBorderY, maxBorderY,
 									  mnFeaturesPerLevel[level]);	//希望保留下来的当前层图像的特征点个数
+
+
         //PATCH_SIZE是对于底层的初始图像来说的，现在要根据当前图层的尺度缩放倍数进行缩放得到缩放后的PATCH大小 和特征点的方向计算有关
         const int scaledPatchSize = PATCH_SIZE*mvScaleFactor[level];
 
@@ -903,6 +909,7 @@ void ORBextractor::ComputeKeyPointsOctTree(vector<vector<KeyPoint> >& allKeypoin
         ComputeOrientationInAllKP(mvImagePyramid[level],    //对应的图层的图像
                                   allKeypoints[level],    //这个图层中提取并保留下来的特征点容器
                                   umax);					//以及PATCH的横坐标边界
+
     }//for (int level = 0; level < mnlevels; ++level)
 }
 
@@ -939,7 +946,8 @@ static void ComputeDescriptorInAllKPs(const Mat& image, vector<KeyPoint>& keypoi
  * @param[in & out] _descriptors              存储特征点描述子的矩阵
  */
 void ORBextractor::RunExtractORB(InputArray _image, std::vector<cv::KeyPoint>& vTars, vector<KeyPoint>& vKeys, OutputArray _descriptors)
-{ 
+{
+
 	// Step 1 检查图像有效性。如果图像为空，那么就直接返回
     if(_image.empty())
         return;
@@ -950,11 +958,14 @@ void ORBextractor::RunExtractORB(InputArray _image, std::vector<cv::KeyPoint>& v
     // Pre-compute the scale pyramid
     // Step 2 构建图像金字塔
     GetPyramidImage(image);
+
+
     // Step 3 计算图像的特征点，并且将特征点进行均匀化。均匀的特征点可以提高位姿计算精度
 	// 存储所有的特征点，注意此处为二维的vector，第一维存储的是金字塔的层数，第二维存储的是那一层金字塔图像里提取的所有特征点
     vector < vector<KeyPoint> > AllKPsInPyra;
     //使用四叉树的方式计算每层图像的特征点并进行分配
     ComputeKeyPointsOctTree(AllKPsInPyra);
+
     AllKPsInPyra[0].insert(AllKPsInPyra[0].end(), vTars.begin(), vTars.end());
 	// Step 4 拷贝图像描述子到新的矩阵descriptors
     Mat descriptors;
@@ -964,6 +975,7 @@ void ORBextractor::RunExtractORB(InputArray _image, std::vector<cv::KeyPoint>& v
 	//开始遍历每层图像金字塔，并且累加每层的特征点个数
     for (int level = 0; level < mnlevels; ++level)
         nkeypoints += (int)AllKPsInPyra[level].size();
+
 	//如果本图像金字塔中没有任何的特征点
     if( nkeypoints == 0 )
 		//通过调用cv::mat类的.realse方法，强制清空矩阵的引用计数，这样就可以强制释放矩阵的数据了
@@ -1015,6 +1027,7 @@ void ORBextractor::RunExtractORB(InputArray _image, std::vector<cv::KeyPoint>& v
                                   keypoints,    //当前图层中的特征点集合
                                   desc,        //存储计算之后的描述子
                                   mvPattern);	//随机采样模板
+
 		// 更新偏移量的值
         offset += nkeypointsLevel;
 

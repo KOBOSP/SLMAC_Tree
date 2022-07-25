@@ -56,44 +56,21 @@ public:
      * @param[in] bFixScale         当前传感器类型的输入需不需要计算尺度。单目的时候需要，双目和RGBD的时候就不需要了
      */
     Sim3Solver();
-    Sim3Solver(KeyFrame* pKF1, KeyFrame* pKF2, const std::vector<MapPoint*> &vpMatched12, const bool bFixScale = true);
 
-    /**
-     * @brief 设置进行RANSAC时的参数
-     * 
-     * @param[in] probability           当前这些匹配点的置信度，也就是一次采样恰好都是内点的概率
-     * @param[in] minInliers            完成RANSAC所需要的最少内点个数
-     * @param[in] maxIterations         设定的最大迭代次数
-     */
-    void SetRansacParameters(double probability = 0.99, int minInliers = 6 , int maxIterations = 300);
+
 
 
     /**
      * @brief Ransac求解mvX3Dc1和mvX3Dc2之间Sim3，函数返回mvX3Dc2到mvX3Dc1的Sim3变换
-     * 
+     *
      * @param[in] nIterations           设置的最大迭代次数
      * @param[in] bNoMore               为true表示穷尽迭代还没有找到好的结果，说明求解失败
      * @param[in] vbInliers             标记是否是内点
      * @param[in] nInliers              内点数目
      * @return cv::Mat                  计算得到的Sim3矩阵
      */
-    cv::Mat MPsiterate(int nIterations, bool &bNoMore, std::vector<bool> &vbInliers, int &nInliers);
     cv::Mat KFsiterate(std::vector<cv::Mat> &vP1s, std::vector<cv::Mat> &vP2s, int nIterations, vector<bool> &vbInliers, int &nInliers);
-    /**
-     * @brief 获取计算的旋转矩阵
-     * @return cv::Mat RANSAC过程中计算得到的最优解的旋转矩阵
-     */
-    cv::Mat GetEstimatedRotation();
-    /**
-     * @brief 获取计算的平移向量
-     * @return cv::Mat 平移向量
-     */
-    cv::Mat GetEstimatedTranslation();
-    /**
-     * @brief 获取估计的从候选帧到当前帧的变换尺度
-     * @return float 尺度因子
-     */
-    float GetEstimatedScale();
+
 
 
 protected:
@@ -114,51 +91,11 @@ protected:
      */
     void ComputeSim3(cv::Mat &P1, cv::Mat &P2);
 
-    /**
-     * @brief 通过计算的Sim3投影，和自身投影的误差比较，进行内点检测
-     * 
-     */
-    void CheckMPInliers();
 
-    /**
-     * @brief 按照给定的Sim3变换进行投影操作,得到三维点的2D投影点
-     * 
-     * @param[in] vP3Dw         3D点
-     * @param[in & out] vP2D    投影到图像的2D点
-     * @param[in] Tcw           Sim3变换
-     * @param[in] K             内参
-     */
-    void Project(const std::vector<cv::Mat> &vP3Dw, std::vector<cv::Mat> &vP2D, cv::Mat Tcw, cv::Mat K);
-
-    /**
-     * @brief 计算当前关键帧中的地图点在当前关键帧图像上的投影坐标
-     * 
-     * @param[in] vP3Dc         相机坐标系下三维点坐标
-     * @param[in] vP2D          投影的二维图像坐标
-     * @param[in] K             内参矩阵
-     */
-    void FromCameraToImage(const std::vector<cv::Mat> &vP3Dc, std::vector<cv::Mat> &vP2D, cv::Mat K);
 
 
 protected:
 
-    // KeyFrames and matches
-    KeyFrame* mpKF1;                            // 当前关键帧
-    KeyFrame* mpKF2;                            // 闭环关键帧
-
-    std::vector<cv::Mat> mvX3Dc1;               // 存储匹配的,当前关键帧中的地图点在当前关键帧相机坐标系下的坐标
-    std::vector<cv::Mat> mvX3Dc2;               // 存储匹配的,闭环关键帧中的地图点在闭环关键帧相机坐标系下的坐标
-    std::vector<MapPoint*> mvpMapPoints1;       // 匹配的地图点的中,存储当前关键帧的地图点
-    std::vector<MapPoint*> mvpMapPoints2;       // 匹配的地图点的中,存储闭环关键帧的地图点
-    std::vector<MapPoint*> mvpMatches12;        // 下标是当前关键帧中特征点的id,内容是对应匹配的,闭环关键帧中的地图点
-    std::vector<size_t> mvnIndices1;            // 有效的匹配关系,在 vpMatched12 (构造函数) 中的索引
-    std::vector<size_t> mvSigmaSquare1;         // 这个变量好像是没有被用到
-    std::vector<size_t> mvSigmaSquare2;         // 这个变量好像是没有被用到
-    std::vector<size_t> mvnMaxError1;           // 当前关键帧中的某个特征点所允许的最大不确定度(和所在的金字塔图层有关)
-    std::vector<size_t> mvnMaxError2;           // 闭环关键帧中的某个特征点所允许的最大不确定度(同上)
-
-    int N;                                      // 下面的这个匹配关系去掉坏点和非法值之后,得到的可靠的匹配关系的点的数目
-    int mN1;                                    // 当前关键帧和闭环关键帧之间形成匹配关系的点的数目(Bow加速得到的匹配点)
 
     // Current Estimation
     cv::Mat mR12i;                              // 存储某次RANSAC过程中得到的旋转
@@ -170,15 +107,11 @@ protected:
     int mnInliersi;                             // 在某次迭代的过程中经过投影误差进行的inlier检测得到的内点数目
     double mdInliersTotErr;
     // Current Ransac State
-    int mnIterations;                           // RANSAC迭代次数(当前正在进行的)
-    double mcosParallaxRays;
     std::vector<bool> mvbBestInliers;           // 累计的,多次RANSAC中最好的最多的内点个数时的内点标记
     int mnBestInliers;                          // 最好的一次迭代中,得到的内点个数
     double mdBestInliersAvgErr;
     cv::Mat mBestT12;                           // 存储最好的一次迭代中得到的变换矩阵
-    cv::Mat mBestRotation;                      // 存储最好的一次迭代中得到的旋转
-    cv::Mat mBestTranslation;                   // 存储最好的一次迭代中得到的平移
-    float mBestScale;                           // 存储最好的一次迭代中得到的缩放系数
+
 
     // Scale is fixed to 1 in the stereo/RGBD case
     bool mbFixScale;                            // 当前传感器输入的情况下,是否需要计算尺度
@@ -186,23 +119,6 @@ protected:
     // Indices for random selection
     std::vector<size_t> mvAllIndices;           // RANSAC中随机选择的时候,存储可以选择的点的id(去除那些存在问题的匹配点后重新排序)
 
-    // Projections
-    std::vector<cv::Mat> mvP1im1;               // 当前关键帧中的地图点在当前关键帧图像上的投影坐标
-    std::vector<cv::Mat> mvP2im2;               // 闭环关键帧中的地图点在闭环关键帧图像上的投影坐标
-
-    // RANSAC probability
-    double mRansacProb;                         // 在计算RANSAC的理论迭代次数时使用到的概率,详细解释还是看函数 SetRansacParameters() 中的注释吧
-
-    // RANSAC min inliers
-    int mRansacMinInliers;                      // RANSAC 结束的理想条件: 结束RANSAC过程所需要的最少内点数
-
-    // RANSAC max iterations
-    int mRansacMaxIts;                          // RANSAC 结束的不理想条件: 最大迭代次数
-
-
-    // Calibration
-    cv::Mat mK1;                                // 当前关键帧的内参矩阵
-    cv::Mat mK2;                                // 闭环关键帧的内参矩阵
 
 };
 

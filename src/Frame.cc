@@ -137,10 +137,18 @@ Frame::Frame(long unsigned int FrameId, const cv::Mat &imGray, const double &tim
     // ORB extraction
 	// Step 3 对这个单目图像进行提取特征点, 第一个参数0-左图， 1-右图
     // 左图的话就套使用左图指定的特征点提取器，并将提取结果保存到对应的变量中
+
+//    auto ExactStart = std::chrono::steady_clock::now();
     (*mpORBextractorLeft).RunExtractORB(imGray,				//待提取特征点的图像
                                         vTars,
                                         mvKeys,			//输出变量，用于保存提取后的特征点
                                         mDescriptors);	//输出变量，用于保存特征点的描述子
+
+//    auto ExactEnd = std::chrono::steady_clock::now();
+//    std::chrono::duration<double> spent = ExactEnd - ExactStart;
+//    std::cout << mvKeys.size() <<","<<spent.count() << " sec \n";
+
+
 	//求出特征点的个数
     mnKeyPointNum = mvKeys.size();
 	//如果没有能够成功提取出特征点，那么就直接返回了
@@ -259,10 +267,6 @@ void Frame::UpdatePoseMatrices()
  */
 bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit)
 {
-    // mbTrackInView是决定一个地图点是否进行重投影的标志
-    // 这个标志的确定要经过多个函数的确定，isInFrustum()只是其中的一个验证关卡。这里默认设置为否
-    pMP->mbTrackInView = false;
-
     // 3D in absolute coordinates
     // Step 1 获得这个地图点的世界坐标
     cv::Mat P = pMP->GetWorldPos(); 
@@ -312,23 +316,6 @@ bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit)
 	//夹角要在60°范围内，否则认为观测方向太偏了，重投影不可靠，返回false
     if(viewCos<viewingCosLimit)
         return false;
-
-    // Predict scale in the image
-    // Step 6 根据地图点到光心的距离来预测一个尺度（仿照特征点金字塔层级）
-    const int nPredictedLevel = pMP->PredictScale(dist,		//这个点到光心的距离
-												  this);	//给出这个帧
-    // Step 7 记录计算得到的一些参数
-    // Data used by the tracking	
-    // 通过置位标记 MapPoint::mbTrackInView 来表示这个地图点要被投影 
-    pMP->mbTrackInView = true;
-    // 该地图点投影在当前图像（一般是左图）的像素横坐标
-    pMP->mTrackProjX = u;
-	// 该地图点投影在当前图像（一般是左图）的像素纵坐标									
-    pMP->mTrackProjY = v;
-    // 根据地图点到光心距离，预测的该地图点的尺度层级
-    pMP->mnTrackScaleLevel = nPredictedLevel;
-    // 保存当前相机指向地图点向量和地图点的平均观测方向夹角的余弦值
-    pMP->mTrackViewCos = viewCos;					
 
     //执行到这里说明这个地图点在相机的视野中并且进行重投影是可靠的，返回true
     return true;

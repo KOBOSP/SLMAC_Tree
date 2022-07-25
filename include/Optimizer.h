@@ -132,58 +132,7 @@ public:
      */
     int static OptimizeFramePose(Frame* pFrame, double ErrorAddFactor=0);
 
-    // if bFixScale is true, 6DoF optimization (stereo,rgbd), 7DoF otherwise (mono)
-    /**
-     * @brief 闭环检测后，EssentialGraph优化
-     *
-     * 1. Vertex:
-     *     - g2o::VertexSim3Expmap，Essential graph中关键帧的位姿
-     * 2. Edge:
-     *     - g2o::EdgeSim3()，BaseBinaryEdge
-     *         + Vertex：关键帧的Tcw，MapPoint的Pw
-     *         + measurement：经过CorrectLoop函数步骤2，Sim3传播校正后的位姿
-     *         + InfoMatrix: 单位矩阵     
-     *
-     * @param pMap               全局地图
-     * @param pLoopKF            闭环匹配上的关键帧
-     * @param pCurKF             当前关键帧
-     * @param NonCorrectedSim3   未经过Sim3传播调整过的关键帧位姿
-     * @param CorrectedSim3      经过Sim3传播调整过的关键帧位姿
-     * @param LoopConnections    因闭环时MapPoints调整而新生成的边
-     */
-    void static OptimizeEssentialGraph(Map* pMap, KeyFrame* pLoopKF, KeyFrame* pCurKF,
-                                       const LoopClosing::KeyFrameAndPose &NonCorrectedSim3,
-                                       const LoopClosing::KeyFrameAndPose &CorrectedSim3,
-                                       const map<KeyFrame *, set<KeyFrame *> > &LoopConnections,
-                                       const bool &bFixScale);
 
-    // if bFixScale is true, optimize SE3 (stereo,rgbd), Sim3 otherwise (mono)
-    // 闭环刚刚形成的时候,对当前关键帧和闭环关键帧之间的sim3变换的优化
-    /**
-     * @brief 形成闭环时,对当前关键帧和闭环关键帧的Sim3位姿进行优化
-     *
-     * 1. Vertex:
-     *     - g2o::VertexSim3Expmap()，两个关键帧的位姿
-     *     - g2o::VertexSBAPointXYZ()，两个关键帧共有的MapPoints
-     * 2. Edge:
-     *     - g2o::EdgeSim3ProjectXYZ()，BaseBinaryEdge
-     *         + Vertex：关键帧的Sim3，MapPoint的Pw
-     *         + measurement：MapPoint在关键帧中的二维位置(u,v)
-     *         + InfoMatrix: invSigma2(与特征点所在的尺度有关)
-     *     - g2o::EdgeInverseSim3ProjectXYZ()，BaseBinaryEdge
-     *         + Vertex：关键帧的Sim3，MapPoint的Pw
-     *         + measurement：MapPoint在关键帧中的二维位置(u,v)
-     *         + InfoMatrix: invSigma2(与特征点所在的尺度有关)
-     *         
-     * @param pKF1        KeyFrame
-     * @param pKF2        KeyFrame
-     * @param vpMatches1  两个关键帧的匹配关系
-     * @param g2oS12      两个关键帧间的Sim3变换
-     * @param th2         核函数阈值
-     * @param bFixScale   是否优化尺度，弹目进行尺度优化，双目不进行尺度优化
-     */
-    static int OptimizeSim3(KeyFrame* pKF1, KeyFrame* pKF2, std::vector<MapPoint *> &vpMatches1,
-                            g2o::Sim3 &g2oS12, const float th2, const bool bFixScale);
 };
 
 } //namespace ORB_SLAM

@@ -113,18 +113,10 @@ public:
     /** @brief 设置 mbnotStop标志的状态 */
     bool SetNotStop(bool flag);
 
-    /** @brief 外部线程调用,终止BA */
-    void InterruptBA();
-
     /** @brief 请求终止当前线程 */
     void RequestFinish();
     /** @brief 当前线程的run函数是否已经终止 */
     bool isFinished();
-    //查看队列中等待插入的关键帧数目
-    int KeyframesInQueue(){
-        unique_lock<std::mutex> lock(mMutexNewKFs);
-        return mlNewKeyFrames.size();
-    }
 
 protected:
 
@@ -173,8 +165,6 @@ protected:
      */
     cv::Mat SkewSymmetricMatrix(const cv::Mat &v);
 
-    /// 当前系统输入数单目还是双目RGB-D的标志
-    bool mbMonocular;
     float mfCullKFRedundantMPRate;
 
     /** @brief 检查当前是否有复位线程的请求 */
@@ -200,8 +190,6 @@ protected:
 
     // 回环检测线程句柄
     LoopClosing* mpLoopCloser;
-    // 追踪线程句柄
-    Tracking* mpTracker;
 
     // Tracking线程向LocalMapping中插入关键帧是先插入到该队列中
     std::list<KeyFrame*> mlNewKeyFrames; ///< 等待处理的关键帧列表

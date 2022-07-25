@@ -142,12 +142,6 @@ void Map::SetReferenceObjects(const vector<MapPoint *> &vpMPs)
     mvpReferenceObjects = vpMPs;
 }
 
-void Map::AddReferenceMapPoints(const vector<MapPoint *> &vpMPs)
-{
-    unique_lock<mutex> lock(mMutexMap);
-    mvpReferenceObjects.insert(mvpReferenceObjects.end(), vpMPs.begin(),vpMPs.end());
-}
-
 
 //获取地图中的所有关键帧
 vector<KeyFrame*> Map::GetAllKeyFrames()
@@ -161,11 +155,15 @@ void Map::GetNearestKeyFramesByGps(int nNum, vector<KeyFrame*> &vKFNearest, cv::
     vector<KeyFrame*> vKFAll=GetAllKeyFrames();
     vector<pair<double,KeyFrame*> >vpdpDistanceAndKF;
     vpdpDistanceAndKF.reserve(vKFAll.size());
-    for(vector<KeyFrame*>::iterator vit=vKFAll.begin(), vend=vKFAll.end(); vit!=vend; vit++){
-        vpdpDistanceAndKF.emplace_back(make_pair(cv::norm((*vit)->mTgpsFrame-t0), (*vit)));
+    {
+        unique_lock<mutex> lock(mMutexMap);
+        for (vector<KeyFrame *>::iterator vit = vKFAll.begin(), vend = vKFAll.end(); vit != vend; vit++) {
+            vpdpDistanceAndKF.emplace_back(make_pair(cv::norm((*vit)->mTgpsFrame - t0), (*vit)));
+        }
     }
-    sort(vpdpDistanceAndKF.begin(),vpdpDistanceAndKF.end());
-    for(vector<pair<double,KeyFrame*> >::iterator vit=vpdpDistanceAndKF.begin(), vend=vpdpDistanceAndKF.end(); vit!=vend&&nNum>0; vit++,nNum--){
+    sort(vpdpDistanceAndKF.begin(), vpdpDistanceAndKF.end());
+    for (vector<pair<double, KeyFrame *> >::iterator vit = vpdpDistanceAndKF.begin(), vend = vpdpDistanceAndKF.end();
+         vit != vend && nNum > 0; vit++, nNum--) {
         vKFNearest.emplace_back((*vit).second);
     }
 }

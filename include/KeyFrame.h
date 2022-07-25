@@ -81,7 +81,6 @@ namespace ORB_SLAM2 {
         cv::Mat GetPose();                  ///< 获取位姿
         cv::Mat GetPoseInverse();           ///< 获取位姿的逆
         cv::Mat GetCameraCenter();          ///< 获取(左目)相机的中心
-        cv::Mat GetStereoCenter();          ///< 获取双目相机的中心,这个只有在可视化的时候才会用到
         cv::Mat GetRotation();              ///< 获取姿态
         cv::Mat GetTranslation();           ///< 获取位置
 
@@ -231,16 +230,9 @@ namespace ORB_SLAM2 {
         void ReplaceMapPointMatch(const size_t &idx, MapPoint *pMP);
 
         /**
-         * @brief 获取当前帧中的所有地图点
-         * @return std::set<MapPoint*> 所有的地图点
-         */
-        std::set<MapPoint *> GetAllMapPointSetInKF();
-
-        /**
          * @brief Get MapPoint Matches 获取该关键帧的MapPoints
          */
         std::vector<MapPoint *> GetAllMapPointVectorInKF(bool bNeedObject = true);
-        std::vector<MapPoint*> GetAllObjctsInKF();
         /**
          * @brief 关键帧中，大于等于minObs的MapPoints的数量
          * @details minObs就是一个阈值，大于minObs就表示该MapPoint是一个高质量的MapPoint \n
@@ -265,8 +257,6 @@ namespace ORB_SLAM2 {
          * @return std::vector<size_t> 在这个邻域内找到的特征点索引的集合
          */
         std::vector<size_t> GetKeyPointsByArea(const float &x, const float &y, const float &r, const bool OnlyTarget=false) const;
-        std::vector<size_t> GetKeyPointsByObjectID(int ClassID) const;
-        std::vector<size_t> GetMapPointByObjectID(int ClassID);
 
         // Image
         /**
@@ -277,13 +267,6 @@ namespace ORB_SLAM2 {
          * @return false
          */
         bool IsInImage(const float &x, const float &y) const;
-
-        // Enable/Disable bad flag changes
-        /** @brief 设置当前关键帧不要在优化的过程中被删除  */
-        void SetNotErase();
-
-        /** @brief 准备删除当前的这个关键帧,表示不进行回环检测过程;由回环检测线程调用 */
-        void SetCanErase();
 
         // Set/check bad flag
         /** @brief 真正地执行删除关键帧的操作 */
@@ -312,13 +295,8 @@ namespace ORB_SLAM2 {
 
         // The following variables are accesed from only 1 thread or never change (no mutex needed).
     public:
-
-
         /// 在nNextID的基础上加1就得到了mnID，为当前KeyFrame的ID号
         long unsigned int mnId;
-
-        /// 时间戳
-        const double mTimeStamp;
 
         // Grid (to speed up feature matching)
         // 和Frame类中的定义相同
@@ -330,7 +308,6 @@ namespace ORB_SLAM2 {
         // Variables used by the tracking
         long unsigned int mnTrackReferenceForFrame;     // 记录它
         long unsigned int mnFuseCandidateInLM;        ///< 标记在局部建图线程中,和哪个关键帧进行融合的操作
-        long unsigned int mnFuseCandidateInLC;
 
 
         // Variables used by the local mapping
@@ -356,21 +333,16 @@ namespace ORB_SLAM2 {
         // Variables used by loop closing
         // 经过全局BA优化后的相机的位姿
         cv::Mat mTcwGBA;
-        // 进行全局BA优化之前的当前关键帧的位姿. 之所以要记录这个是因为在全局优化之后还要根据该关键帧在优化之前的位姿来更新地图点,which地图点的参考关键帧就是该关键帧
-        cv::Mat mTcwBefGBA;
         cv::Mat mTgpsFrame;
-        // 记录是由于哪个"当前关键帧"触发的全局BA,用来防止重复写入的事情发生(浪费时间)
-        long unsigned int mnBAGlobalForKF;
 
         // Calibration parameters
-        const float fx, fy, cx, cy, invfx, invfy, mThDepth;
+        const float fx, fy, cx, cy, invfx, invfy;
 
         /// Number of KeyPoints
         const int mnKeyPointNum;
 
         // KeyPoints, stereo coordinate and descriptors (all associated by an index)
         // 和Frame类中的定义相同
-        const std::vector<cv::KeyPoint> mvKeys;
         const std::vector<cv::KeyPoint> mvKeysUn;
         const cv::Mat mDescriptors;
 

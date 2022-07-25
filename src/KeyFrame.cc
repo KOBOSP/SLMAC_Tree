@@ -40,12 +40,12 @@ int KeyFrame::mnMinConnectedWeight=15;
 
 //关键帧的构造函数
 KeyFrame::KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB):
-        mnId(F.mnId), mTimeStamp(F.mTimeStamp), mnGridCols(FRAME_GRID_COLS), mnGridRows(FRAME_GRID_ROWS),
+        mnId(F.mnId), mnGridCols(FRAME_GRID_COLS), mnGridRows(FRAME_GRID_ROWS),
         mfGridElementWidthInv(F.mfGridElementWidthInv), mfGridElementHeightInv(F.mfGridElementHeightInv),
-        mnTrackReferenceForFrame(0), mnFuseCandidateInLM(0), mnFuseCandidateInLC(0), mnBALocalForKF(0), mnBAFixedForKF(0),
-        mnFrameIDShareWord(0), mnShareWord(0), mnRelocQuery(0), mnRelocWords(0), mnBAGlobalForKF(0),
-        fx(F.fx), fy(F.fy), cx(F.cx), cy(F.cy), invfx(F.invfx), invfy(F.invfy), mThDepth(F.mThDepth),
-        mnKeyPointNum(F.mnKeyPointNum), mvKeys(F.mvKeys), mvKeysUn(F.mvKeysUn), mDescriptors(F.mDescriptors.clone()),
+        mnTrackReferenceForFrame(0), mnFuseCandidateInLM(0), mnBALocalForKF(0), mnBAFixedForKF(0),
+        mnFrameIDShareWord(0), mnShareWord(0), mnRelocQuery(0), mnRelocWords(0),
+        fx(F.fx), fy(F.fy), cx(F.cx), cy(F.cy), invfx(F.invfx), invfy(F.invfy),
+        mnKeyPointNum(F.mnKeyPointNum), mvKeysUn(F.mvKeysUn), mDescriptors(F.mDescriptors.clone()),
         mBowVec(F.mBowVec), mFeatVec(F.mFeatVec), mnScaleLevels(F.mnScaleLevels), mfScaleFactor(F.mfScaleFactor),
         mfLogScaleFactor(F.mfLogScaleFactor), mvScaleFactors(F.mvScaleFactors), mvLevelSigma2(F.mvLevelSigma2),
         mvInvLevelSigma2(F.mvInvLevelSigma2), mnMinX(F.mnMinX), mnMinY(F.mnMinY), mnMaxX(F.mnMaxX),
@@ -123,12 +123,6 @@ cv::Mat KeyFrame::GetCameraCenter()
     return Ow.clone();
 }
 
-// 获取双目相机的中心,这个只有在可视化的时候才会用到
-cv::Mat KeyFrame::GetStereoCenter()
-{
-    unique_lock<mutex> lock(mMutexPose);
-    return Cw.clone();
-}
 
 // 获取姿态
 cv::Mat KeyFrame::GetRotation()
@@ -311,23 +305,6 @@ void KeyFrame::ReplaceMapPointMatch(const size_t &idx, MapPoint* pMP)
     mvpMapPoints[idx]=pMP;
 }
 
-// 获取当前关键帧中的所有地图点
-set<MapPoint*> KeyFrame::GetAllMapPointSetInKF()
-{
-    unique_lock<mutex> lock(mMutexFeatures);
-
-    set<MapPoint*> s;
-    for(size_t i=0, iend=mvpMapPoints.size(); i<iend; i++){
-        // 判断是否被删除了
-        if(!mvpMapPoints[i])
-            continue;
-        MapPoint* pMP = mvpMapPoints[i];
-        // 如果是没有来得及删除的坏点也要进行这一步
-        if(!pMP->GetbBad())
-            s.insert(pMP);
-    }
-    return s;
-}
 
 // 关键帧中，大于等于最少观测数目minObs的MapPoints的数量.这些特征点被认为追踪到了
 int KeyFrame::GetNumMapPointsBigObs(const int &minObs)
@@ -374,23 +351,6 @@ vector<MapPoint*> KeyFrame::GetAllMapPointVectorInKF(bool bNeedObject)
     return tmp;
 }
 
-vector<MapPoint*> KeyFrame::GetAllObjctsInKF()
-{
-    unique_lock<mutex> lock(mMutexFeatures);
-    std::vector<MapPoint *> tmp;
-    for(int i=0;i<mnKeyPointNum;i++){
-        MapPoint* pMP = mvpMapPoints[i];
-        if(pMP){
-            if(pMP->GetbBad()){
-                continue;
-            }
-            if(pMP->GetObjectId()>0){
-                tmp.emplace_back(pMP);
-            }
-        }
-    }
-    return tmp;
-}
 
 // 获取当前关键帧的具体的某个地图点
 MapPoint* KeyFrame::GetMapPointByIndex(const size_t &idx)
@@ -582,32 +542,6 @@ set<KeyFrame*> KeyFrame::GetLoopEdges()
     return mspLoopEdges;
 }
 
-// 设置当前关键帧不要在优化的过程中被删除. 由回环检测线程调用
-void KeyFrame::SetNotErase()
-{
-    unique_lock<mutex> lock(mMutexConnections);
-    mbNotEraseInLoop = true;
-}
-
-/**
- * @brief 删除当前的这个关键帧,表示不进行回环检测过程;由回环检测线程调用
- * 
- */
-void KeyFrame::SetCanErase()
-{
-    {
-        unique_lock<mutex> lock(mMutexConnections);
-        // 如果当前关键帧和其他的关键帧没有形成回环关系,那么就删吧
-        if(mspLoopEdges.empty()){
-            mbNotEraseInLoop = false;
-        }
-    }
-
-    // mbToBeErased：删除之前记录的想要删但时机不合适没有删除的帧
-    if(mbToBeErased){
-        SetBadFlag();
-    }
-}
 
 /**
  * @brief 真正地执行删除关键帧的操作
@@ -819,35 +753,6 @@ vector<size_t> KeyFrame::GetKeyPointsByArea(const float &x, const float &y, cons
         }
     }
 
-    return vIndices;
-}
-
-vector<size_t> KeyFrame::GetKeyPointsByObjectID(int ClassID) const
-{
-    vector<size_t> vIndices;
-    vIndices.reserve(10);
-    for(int i=0;i<mvKeysUn.size();i++){
-        if(mvKeysUn[i].class_id==ClassID){
-            vIndices.emplace_back(i);
-        }
-    }
-    return vIndices;
-}
-
-
-vector<size_t> KeyFrame::GetMapPointByObjectID(int ClassID){
-    unique_lock<mutex> lock(mMutexFeatures);
-    vector<size_t> vIndices;
-    vIndices.reserve(10);
-    for(int i=0;i<mvpMapPoints.size();i++){
-        if(!mvpMapPoints[i])
-            continue;
-        if(mvpMapPoints[i]->GetbBad())
-            continue;
-        if(mvpMapPoints[i]->GetObjectId() == ClassID){
-            vIndices.emplace_back(i);
-        }
-    }
     return vIndices;
 }
 

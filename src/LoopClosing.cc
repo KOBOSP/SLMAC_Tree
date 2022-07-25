@@ -48,16 +48,12 @@ namespace ORB_SLAM2
 
 // 构造函数
 LoopClosing::LoopClosing(Map *pMap, KeyFrameDatabase *pDB, ORBVocabulary *pVoc, int nMaxObjectID, const string &strSettingPath, const bool bFixScale):
-        mbResetRequested(false), mbFinishRequested(false), mbFinished(true), mpMap(pMap),
-        mpKeyFrameDB(pDB), mpORBVocabulary(pVoc), mpMatchedKF(static_cast<KeyFrame*>(NULL)), mLastMapPointLoopKFId(0), mLastMapPointCoSeeKFId(0), mbRunningGBA(false),
-        mbStopGBA(false), mpThreadGBA(static_cast<thread*>(NULL)), mbFixScale(bFixScale), mnFullBAIdx(0), mnMaxObjectID(nMaxObjectID)
+        mbResetRequested(false), mbFinishRequested(false), mbFinished(true), mpMap(pMap), mbRunningGBA(false), mnMaxObjectID(nMaxObjectID)
 {
     // 连续性阈值
     cv::FileStorage fSettings(strSettingPath, cv::FileStorage::READ);
     int temp = fSettings["LoopClose.CovisibilityConsistencyTh"];
     mnCovisibilityConsistencyTh = temp;
-    temp = fSettings["Camera.fps"];
-    mnfpsByCfgFile = temp;
     temp = fSettings["LoopClose.SystemWithoutLoopClose"];
     mbSystemWithoutLoopClose=bool(temp);
     mnSingleMatchKeyPoint = fSettings["LoopClose.SingleMatchKeyPoint"];
@@ -83,11 +79,7 @@ void LoopClosing::SetTracker(Tracking *pTracker)
 {
     mpTracker=pTracker;
 }
-// 设置局部建图线程的句柄
-void LoopClosing::SetLocalMapper(LocalMapping *pLocalMapper)
-{
-    mpLocalMapper=pLocalMapper;
-}
+
 
 // 回环线程主函数
 void LoopClosing::Run()
@@ -97,31 +89,18 @@ void LoopClosing::Run()
     // 线程主循环
     while(true){
         if(!mbSystemWithoutLoopClose){        // Check if there are keyframes in the queue
-            // Loopclosing中的关键帧是LocalMapping发送过来的，LocalMapping是Tracking中发过来的
-            // 在LocalMapping中通过 InsertKeyFrameInQueue 将关键帧插入闭环检测队列mlpLoopKeyFrameQueue
-            // Step 1 查看闭环检测队列mlpLoopKeyFrameQueue中有没有关键帧进来
-            //LinkObjectIdByProjectGlobalMapToAllKF();
             if (CheckNewKeyFrames()) {//have new KF
-                //DetectLoopByMapPoint();
                 UpdataGPSToVOSim3InLoopClosing();
                 LinkObjectIdBySearchGpsLocation();
-//                FuseSameIdObjectInGlobalMap();
             }
-            //cout<<"in FuseSameIdObjectInGlobalMap"<<endl;
-
-//            cout<<"in LinkObjectIdByProjectGlobalMapToAllKF"<<endl;
             LinkObjectIdByProjectGlobalMapToAllKF();
             FuseSameIdObjectInGlobalMap();
-
-//            cout<<"out LinkObjectIdByProjectGlobalMapToAllKF"<<endl;
-
         }
         // 查看是否有外部线程请求复位当前线程
         ResetIfRequested();
         // 查看外部线程是否有终止当前线程的请求,如果有的话就跳出这个线程的主函数的主循环
         if(CheckFinish())
             break;
-        //usleep(5000);
 		std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
     // 运行到这里说明有外部线程请求终止当前线程,在这个函数中执行终止当前线程的一些操作
@@ -201,10 +180,6 @@ void LoopClosing::LinkObjectIdBySearchGpsLocation() {
         if ((*vit1)->GetbBad()) {
             continue;
         }
-//        cout<<(*vit1)->mnObjectID<<" "<<(*vit1)->mnId<<" ====="<<(*vit1)->GetGpsPos()<<endl;
-//        if((*vit1)->GetGpsPos().at<double>(2)<5){
-//            continue;
-//        }
         for (vector<MapPoint *>::iterator vit2 = vit1+1; vit2 != ObjectsInGlobalMap.end(); vit2++) {
             if (!(*vit2)) {
                 continue;
@@ -218,7 +193,7 @@ void LoopClosing::LinkObjectIdBySearchGpsLocation() {
                 continue;
             }
             dCentmpDis = cv::norm((*vit1)->GetGpsPos(), (*vit2)->GetGpsPos(), cv::NORM_L2);
-            if(dCentmpDis<0.5) {//less than 1m
+            if(dCentmpDis<1.0) {//less than 1m
                 mpMap->SetRootIdxToSameObjectIdMap(root1,root2);
             }
         }
@@ -258,10 +233,7 @@ void LoopClosing::LinkObjectIdByProjectGlobalMapToAllKF(){
             // 1.如果地图点能匹配关键帧的特征点，并且该点有对应的地图点，那么选择观测数目多的替换两个地图点
             // 2.如果地图点能匹配关键帧的特征点，并且该点没有对应的地图点，那么为该点添加该投影地图点
             // 注意这个时候对地图点融合的操作是立即生效的
-            int kkk = matcher.FuseRedundantMapPointAndObjectByProjectInLocalMap(pKFi, vpMPOne, 2);
-            if(kkk>0){
-                cout<<"FuseRedundantMapPointAndObjectByProjectInLocalMap "<<kkk<<" "<<pMPObj->GetObjectId()<<endl;
-            }
+            matcher.FuseRedundantMapPointAndObjectByProjectInLocalMap(pKFi, vpMPOne, 2);
         }
     }
 }
@@ -420,7 +392,6 @@ void LoopClosing::ResetIfRequested(){
     if(mbResetRequested)
     {
         mlpLoopKeyFrameQueue.clear();   // 清空参与和进行回环检测的关键帧队列
-        mLastMapPointLoopKFId=0;                // 上一次没有和任何关键帧形成闭环关系
         mbResetRequested=false;         // 复位请求标志复位
     }
 }

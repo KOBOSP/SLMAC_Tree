@@ -233,8 +233,6 @@ int FrameDrawer::UpdateImgKPMPState(Tracking *pTracker)
     mvbVO = vector<bool>(mnKeyNumInFrame, false);
     mvbMap = vector<bool>(mnKeyNumInFrame, false);
 
-    mbOnlyTracking = pTracker->mbOnlyTracking;
-
     //如果上一帧的时候,追踪器没有进行初始化
     if(pTracker->mLastProcessedState==Tracking::NOT_INITIALIZED){
         //那么就要获取初始化帧的特征点和匹配信息
