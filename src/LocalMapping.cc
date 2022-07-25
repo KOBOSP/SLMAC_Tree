@@ -96,11 +96,8 @@ void LocalMapping::Run()
             if(!HaveNewKeyFrameInQueue()){
                 // Find more matches in neighbor keyframes and fuse point duplications
                 //  Step 5 检查并融合当前关键帧与相邻关键帧帧（两级相邻）中重复的地图点
-                cout<<"---------FuseMapPointsInNeighbors---------------"<<endl;
                 FuseMapPointsInNeighbors();
-                cout<<"---------FuseObjectsInGlobalMap---------------"<<endl;
                 FuseObjectsInGlobalMap();
-                cout<<"---------end---------------"<<endl;
             }
             // 终止BA的标志
             mbAbortBA = false;
@@ -619,17 +616,6 @@ void LocalMapping::FuseObjectsInGlobalMap(){
     vpCandidateKF.resize(vpObjectInCurKF.size()*3);
     vpCandidateMP.resize(vpObjectInCurKF.size()*3);
 
-    vector<int> vnSameIdObject(1000,0);
-    vector<int> vnSameIdObjectNew(1000,0);
-    vector<int> vnSameIdObjectInCKF(1000,0);
-    for(vector<MapPoint*>::iterator vit=vpObjectInGlobalMap.begin(), vend=vpObjectInGlobalMap.end(); vit!=vend; vit++) {
-        MapPoint* pMPG = *vit;
-        if(!pMPG)
-            continue;
-        if(pMPG->isBad())
-            continue;
-        vnSameIdObject[pMPG->mnObjectID]++;
-    }
 
     //all the mappoint in current KF
     for(vector<MapPoint*>::iterator vitMPC=vpObjectInCurKF.begin(), vendMPC=vpObjectInCurKF.end(); vitMPC != vendMPC; vitMPC++){
@@ -639,33 +625,25 @@ void LocalMapping::FuseObjectsInGlobalMap(){
         if(pMPC->isBad())
             continue;
         pMPC->mnFuseCandidateInLM=mpCurrentKeyFrame->mnId;
-        int f1=0,f2=0,f3=0,f4=0,f5=0,f6=0;
         //all the mappoint in global map
         for(vector<MapPoint*>::iterator vitMPG=vpObjectInGlobalMap.begin(), vendMPG=vpObjectInGlobalMap.end(); vitMPG != vendMPG; vitMPG++) {
             MapPoint* pMPG = *vitMPG;
             if(!pMPG){
-                f1++;
                 continue;
             }
             if(pMPG->isBad()){
-                f2++;
                 continue;
             }
             //two mappoint have same object id
             if(pMPC->mnObjectID!=pMPG->mnObjectID){
-                f3++;
                 continue;
             }
-//            if(pMPG->IsInKeyFrame(mpCurrentKeyFrame)){
-//                f4++;
-//                continue;
-//            }
-//            if(pMPC->mnId==pMPG->mnId||pMPG->mnFuseCandidateInLM==mpCurrentKeyFrame->mnId){
-//                f5++;
-////                cout<<pMPC->mnId<<" "<<pMPG->mnId<<" "<<pMPG->mnFuseCandidateInLM<<" "<<mpCurrentKeyFrame->mnId<<endl;
-//                continue;
-//            }
-            f6++;
+            if(pMPG->IsInKeyFrame(mpCurrentKeyFrame)){
+                continue;
+            }
+            if(pMPC->mnId==pMPG->mnId||pMPG->mnFuseCandidateInLM==mpCurrentKeyFrame->mnId){
+                continue;
+            }
             pMPG->mnFuseCandidateInLM=mpCurrentKeyFrame->mnId;
             vpCandidateMP.emplace_back(pMPG);
             map<KeyFrame*, size_t> mMPGObservKFAndIdx = pMPG->GetObservationsKFAndMPIdx();
@@ -682,17 +660,8 @@ void LocalMapping::FuseObjectsInGlobalMap(){
                 vpCandidateKF.emplace_back(pKF);
             }
         }
-        cout<<"f1=0,f2=0,f3=0,f4=0,f5=0,f6=0; "<<f1<<" "<<f2<<" "<<f3<<" "<<f4<<" "<<f5<<" "<<f6<<" "<<pMPC->mnObjectID<<endl;
     }
 
-    for(vector<MapPoint*>::iterator vit=vpCandidateMP.begin(), vend=vpCandidateMP.end(); vit!=vend; vit++) {
-        MapPoint* pMPG = *vit;
-        if(!pMPG)
-            continue;
-        if(pMPG->isBad())
-            continue;
-        vnSameIdObjectInCKF[pMPG->mnObjectID]++;
-    }
     mpMap->SetReferenceObjects(vpCandidateMP);
     // 使用默认参数, 最优和次优比例0.6,匹配时检查特征点的旋转
     ORBmatcher matcher;
@@ -702,40 +671,9 @@ void LocalMapping::FuseObjectsInGlobalMap(){
             continue;
         if(pKF->isBad())
             continue;
-        cout<<"pKF matcher:"<<matcher.FuseRedundantMapPointInLocalMap(pKF, vpObjectInCurKF)<<endl;
+        matcher.FuseRedundantMapPointInLocalMap(pKF, vpObjectInCurKF);
     }
-    cout<<"mpCurrentKeyFrame matcher:"<<matcher.FuseRedundantMapPointInLocalMap(mpCurrentKeyFrame, vpCandidateMP)<<endl;
-
-
-    vector<MapPoint*> vpObjectInGlobalMapNew = mpMap->GetAllObjectsInMap();
-    for(vector<MapPoint*>::iterator vit=vpObjectInGlobalMapNew.begin(), vend=vpObjectInGlobalMapNew.end(); vit!=vend; vit++) {
-        MapPoint* pMPG = *vit;
-        if(!pMPG)
-            continue;
-        if(pMPG->isBad())
-            continue;
-        vnSameIdObjectNew[pMPG->mnObjectID]++;
-    }
-    cout<<"mpCurrentKeyFrame->mnId:"<<mpCurrentKeyFrame->mnId<<endl<<"vnSameIdObjectInCKF ";
-    for(int i=0;i<vnSameIdObjectInCKF.size();i++){
-        if(vnSameIdObjectInCKF[i]>0){
-            cout<<i<<":"<<vnSameIdObjectInCKF[i]<<"\t";
-        }
-    }
-    cout<<endl<<"vnSameIdObject ";
-    for(int i=0;i<vnSameIdObject.size();i++){
-        if(vnSameIdObject[i]>0){
-            cout<<i<<":"<<vnSameIdObject[i]<<"\t";
-        }
-    }
-    cout<<endl<<"vnSameIdObjectNew ";
-    for(int i=0;i<vnSameIdObjectNew.size();i++){
-        if(vnSameIdObjectNew[i]>0){
-            cout<<i<<":"<<vnSameIdObjectNew[i]<<"\t";
-        }
-    }
-    cout<<endl;
-
+    matcher.FuseRedundantMapPointInLocalMap(mpCurrentKeyFrame, vpCandidateMP);
 
     // UpdateImgKPMPState points
     // Step 5：更新当前帧地图点的描述子、深度、平均观测方向等属性

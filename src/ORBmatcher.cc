@@ -1081,7 +1081,6 @@ int ORBmatcher::SearchKFMatchPointByKFTarget(KeyFrame *pKF1, KeyFrame *pKF2, vec
         for (size_t j = 0; j < pKF2->mnKeyPointNum; j++) {
             if (pKF1->mvKeysUn[i].class_id == pKF2->mvKeysUn[j].class_id && pKF1->mvKeysUn[i].class_id>0) {
                 vMatchedPairs.emplace_back(make_pair(i,j));
-                cout<<pKF1->mnId<<" "<<pKF2->mnId<<" "<< pKF1->mvKeysUn[i].class_id<<" "<<i<<" "<<j<<endl;
                 num++;
             }
         }
@@ -1642,23 +1641,19 @@ int ORBmatcher::FuseRedundantMapPointInLocalMap(KeyFrame *pKF, const vector<MapP
     int nFused=0;
     const int nMPs = vpMapPoints.size();
     // 遍历所有的待投影地图点
-    int NullValue=0,BadValue=0,InKeyFrame=0,IndiceEmpty=0,AddObservation=0,BadMPinKF=0,pMPReplace=0,pMPinKFReplace=0;
     for(int i=0; i<nMPs; i++){
         MapPoint* pMP = vpMapPoints[i];
         // Step 1 判断地图点的有效性
         if(!pMP){
-            NullValue++;
             continue;
         }
         // 地图点无效 或 已经是该帧的地图点（无需融合），跳过
         if(pMP->isBad()){
-            BadValue++;
             continue;
         }
-//        if(pMP->IsInKeyFrame(pKF)){
-//            InKeyFrame++;
-//            continue;
-//        }
+        if(pMP->IsInKeyFrame(pKF)){
+            continue;
+        }
         int bestDist = 256;
         int bestIdx = -1;
         if(pMP->mnObjectID<0){
@@ -1738,7 +1733,6 @@ int ORBmatcher::FuseRedundantMapPointInLocalMap(KeyFrame *pKF, const vector<MapP
         else{
             const vector<size_t> vIndices = pKF->GetMapPointByObjectID(pMP->mnObjectID);
             if(vIndices.empty()){
-                IndiceEmpty++;
                 continue;
             }
             bestIdx=vIndices[0];
@@ -1755,19 +1749,13 @@ int ORBmatcher::FuseRedundantMapPointInLocalMap(KeyFrame *pKF, const vector<MapP
                 if(!pMPinKF->isBad()){
                     if(pMPinKF->Observations()>pMP->Observations()){
                         pMP->Replace(pMPinKF);
-                        pMPReplace++;
                     }
                     else{
                         pMPinKF->Replace(pMP);
-                        pMPinKFReplace++;
                     }
-                }
-                else{
-                    BadMPinKF++;
                 }
             }
             else{
-                AddObservation++;
                 // 如果最佳匹配点没有对应地图点，添加观测信息
                 pMP->AddObservation(pKF,bestIdx);
                 pKF->AddMapPoint(pMP,bestIdx);
@@ -1775,7 +1763,6 @@ int ORBmatcher::FuseRedundantMapPointInLocalMap(KeyFrame *pKF, const vector<MapP
             nFused++;
         }
     }
-    cout << NullValue <<" "<< BadValue <<" "<< InKeyFrame <<" "<< IndiceEmpty <<" "<< AddObservation <<" "<< BadMPinKF <<" "<< pMPReplace <<" "<< pMPinKFReplace <<" "<< endl;
     return nFused;
 }
 

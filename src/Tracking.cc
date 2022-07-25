@@ -989,7 +989,7 @@ bool Tracking::TrackWithMotionModel()
     // 设置特征匹配过程中的搜索半径
     int th;
     if(mSensor!=System::STEREO)
-        th=40;//单目
+        th=20;//单目
     else
         th=14;//双目
 
