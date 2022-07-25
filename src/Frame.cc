@@ -109,7 +109,7 @@ Frame::Frame(const Frame &frame)
  * @param[in] bf                                //baseline*f
  * @param[in] thDepth                           //区分远近点的深度阈值
  */
-Frame::Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &thDepth, std::vector<cv::KeyPoint> &vTars)
+Frame::Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &thDepth, std::vector<cv::KeyPoint> vTars)
     :mpORBvocabulary(voc),mpORBextractorLeft(extractor),mpORBextractorRight(static_cast<ORBextractor*>(NULL)),
      mTimeStamp(timeStamp), mK(K.clone()), mDistCoef(distCoef.clone()), mThDepth(thDepth)
 {
@@ -144,7 +144,6 @@ Frame::Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extra
 	//如果没有能够成功提取出特征点，那么就直接返回了
     if(mvKeys.empty())
         return;
-
     // Step 4 用OpenCV的矫正函数、内参对提取到的特征点进行矫正
     UndistortKeyPoints();
     // 初始化本帧的地图点

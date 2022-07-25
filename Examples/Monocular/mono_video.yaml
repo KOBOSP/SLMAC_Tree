@@ -17,11 +17,9 @@ Camera.p2: 0
 Camera.k3: 0
  
 # Camera frames per second 
-Image.width: 1920
-Image.height: 1080
-Camera.width: 960
-Camera.height: 544
-Camera.fps: 7
+Camera.width: 720
+Camera.height: 576
+Camera.fps: 25
  
 # Color order of the images (0: BGR, 1: RGB. It is ignored if images are grayscale)
 Camera.RGB: 0
@@ -49,7 +47,6 @@ Track.GoodMMOrRKFVOThreshold: 20
 Track.LossMMOrRKFVOThreshold: 10
 Track.GoodLMVOThreshold: 40
 Track.LossLMVOThreshold: 20
-Track.MaxFrameID: 15000
 LoopClose.CovisibilityConsistencyTh: 3
 LoopClose.SingleMatchKeyPoint: 5
 LoopClose.TotalMatchKeyPoint: 40

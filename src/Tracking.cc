@@ -95,10 +95,7 @@ Tracking::Tracking(
     float fy = fSettings["Camera.fy"];
     float cx = fSettings["Camera.cx"];
     float cy = fSettings["Camera.cy"];
-    int frame_width=fSettings["Camera.width"];
-    int frame_height=fSettings["Camera.height"];
-    int image_width=fSettings["Image.width"];
-    int image_height=fSettings["Image.height"];
+
     //     |fx  0   cx|
     // K = |0   fy  cy|
     //     |0   0   1 |
@@ -144,10 +141,6 @@ Tracking::Tracking(
     cout << "- p1: " << DistCoef.at<float>(2) << endl;
     cout << "- p2: " << DistCoef.at<float>(3) << endl;
     cout << "- mnfpsByCfgFile: " << mnfpsByCfgFile << endl;
-    cout << "- frame_width: " << frame_width << endl;
-    cout << "- frame_height: " << frame_height << endl;
-    cout << "- image_width: " << image_width << endl;
-    cout << "- image_height: " << image_height << endl;
 
     // 1:RGB 0:BGR
     int nRGB = fSettings["Camera.RGB"];
@@ -176,7 +169,6 @@ Tracking::Tracking(
     mnLossMMOrRKFVOThreshold = fSettings["Track.LossMMOrRKFVOThreshold"];
     mnGoodLMVOThreshold = fSettings["Track.GoodLMVOThreshold"];
     mnLossLMVOThreshold = fSettings["Track.LossLMVOThreshold"];
-    int MaxFrameID = fSettings["Track.MaxFrameID"];
     cout << endl  << "ORB Extractor Parameters: " << endl;
     cout << "- Number of Features: " << nFeatures << endl;
     cout << "- Scale Levels: " << nLevels << endl;
@@ -187,8 +179,6 @@ Tracking::Tracking(
     cout << "- Track.LossMMOrRKFVOThreshold: " << mnLossMMOrRKFVOThreshold << endl;
     cout << "- Track.GoodLMVOThreshold: " << mnGoodLMVOThreshold << endl;
     cout << "- Track.LossLMVOThreshold: " << mnLossLMVOThreshold << endl;
-    cout << "- Track.MaxFrameID: " << MaxFrameID << endl;
-
 
     // tracking过程都会用到mpORBextractorLeft作为特征点提取器
     mpORBextractorLeft = new ORBextractor(
@@ -204,15 +194,14 @@ Tracking::Tracking(
     ios::sync_with_stdio(false);
     freopen(strFrameTargetFile.c_str(),"r",stdin);
     int tmpFrameID, tmpTargetID, tmpTargetX, tmpTargetY, tmpTargetL, tmpTargetH;
-    mvTarsSet.resize(MaxFrameID);
+    mvTarsSet.resize(15000);
     int ColorSetSize = fSettings["Viewer.ColorSetSize"];
     vector<cv::Point3f> ColorSet;
     for(int i=0;i<ColorSetSize;i++){
         ColorSet.push_back(cv::Point3f(rand()%255, rand()%255,rand()%255));
     }
     while(cin >> tmpFrameID >> tmpTargetID >> tmpTargetX >> tmpTargetY >> tmpTargetL >> tmpTargetH){
-        mvTarsSet[tmpFrameID].push_back(cv::KeyPoint(cv::Point2f((tmpTargetX+tmpTargetL/2.0)/image_width*frame_width,
-                                                                 (tmpTargetY+tmpTargetH/2.0)/image_height*frame_height),
+        mvTarsSet[tmpFrameID].push_back(cv::KeyPoint(cv::Point2f(tmpTargetX+tmpTargetL/2.0, tmpTargetY+tmpTargetH/2.0),
                                                      ColorSet[tmpTargetID%ColorSetSize].x,
                                                      ColorSet[tmpTargetID%ColorSetSize].y,
                                                      ColorSet[tmpTargetID%ColorSetSize].z,
@@ -221,7 +210,7 @@ Tracking::Tracking(
     }
     fclose(stdin);
     cout << "- Viewer.ColorSetSize: " << ColorSetSize << endl;
-    cout << "- ActualMaxFrameID: " << tmpFrameID << endl;
+    cout << "- Track.MaxFrameID: " << tmpFrameID << endl;
 }
 
 //设置局部建图器
