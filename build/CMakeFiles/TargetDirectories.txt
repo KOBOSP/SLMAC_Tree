@@ -1,0 +1,4 @@
+/home/kobosp/SLMAC/SLAMTC/build/CMakeFiles/rebuild_cache.dir
+/home/kobosp/SLMAC/SLAMTC/build/CMakeFiles/edit_cache.dir
+/home/kobosp/SLMAC/SLAMTC/build/CMakeFiles/mono_euroc.dir
+/home/kobosp/SLMAC/SLAMTC/build/CMakeFiles/ORB_SLAM2.dir
